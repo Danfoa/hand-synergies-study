@@ -1,0 +1,8 @@
+
+*.ini
+
+.vscode/
+
+.idea/workspace.xml
+
+/kine-adl-be-uji_dataset/
