@@ -6,62 +6,70 @@ from sklearn.decomposition import PCA
 
 from utils.visualization import *
 from utils.data_loader import *
+import os
 
-if __name__ == '__main__':
-    DATABASE_PATH = 'kine-adl-be-uji_dataset/CSV Data'
 
-    subjects = EXP1_SUBJECTS
-    records = EXP1_RECORDS
-    experiment = 1
+DATABASE_PATH = 'kine-adl-be-uji_dataset/CSV DATA'
 
+
+def generate_recordings_pca(subjects, records, experiment, tasks=None, n_components=10):
     df = load_static_grasps(database_path=DATABASE_PATH,
                             subjects_id=subjects,
                             experiment_number=experiment,
                             records_id=records)
 
-    stable_grasps = df[[e.value for e in RightHand] + [e.value for e in LeftHand]]
+    print("Analysing records with shape ", df.shape)
 
-    # Remove NANs
-    data_with_missing_values = stable_grasps.index[stable_grasps.isna().any(axis=1)]
-    if len(data_with_missing_values) > 0:
-        print("Removing %.2f%% observations with missing numerical values" %
-              ((len(data_with_missing_values) / stable_grasps.shape[0]) * 100))
-        stable_grasps = stable_grasps.drop(index=data_with_missing_values)
+    # Obtain stable grasps for each hand.
+    right_hand_stable_grasps = df[[e.value for e in RightHand]]
+    left_hand_stable_grasps = df[[e.value for e in LeftHand]]
+
+    # Remove possible NANs values.
+    right_hand_stable_grasps = remove_timesteps_with_missing_values(right_hand_stable_grasps)
+    left_hand_stable_grasps = remove_timesteps_with_missing_values(left_hand_stable_grasps)
+
+    # Apply PCA to left hand
+    left_hand_pca = PCA(n_components=n_components)
+    left_hand_pca.fit_transform(left_hand_stable_grasps)
+    # Apply PCA to right hand
+    right_hand_pca = PCA(n_components=n_components)
+    right_hand_pca.fit_transform(right_hand_stable_grasps)
+
+    # Save data into figure
+    title = 'PCA on %d stable grasps - KINE_ADL_BE_UJI dataset \nsubjects:(%d-%d)-records:(%d-%d)' \
+            % (left_hand_stable_grasps.shape[0],
+               min(subjects), max(subjects),
+               min(records), max(records))
+    path = 'media/pca/E%d/pca-sub_(%d-%d)-Tasks_(%d).png' % (experiment,
+                                                                  min(subjects), max(subjects),
+                                                                  # min(records), max(records),
+                                                                             tasks[0])
+
+    plot_pca_variances(left_hand_pca, right_hand_pca, title=title, save_path=path)
 
 
-    # Apply PCA
-    n_components = 10
+if __name__ == '__main__':
 
-    pca = PCA(n_components=n_components)
-    pca.fit_transform(stable_grasps)
+    # Analyse the entire experiment 1 stable grasps
+    subjects = EXP1_SUBJECTS
+    records = EXP1_RECORDS
+    experiment = 1
+    for task in EXP1_TASKS:
+        generate_recordings_pca(subjects=subjects, records=records, tasks=[task], experiment=experiment, n_components=10)
 
-    # ------------------------------------------------------------------------------------------------
-    # PRINT EIGEN VALUES VARIANCES
-    labels = ['PC%d' % (c + 1) for c in range(n_components)]
+    # Analyse the entire experiment 2 stable grasps
+    subjects = EXP2_SUBJECTS
+    records = EXP2_RECORDS
+    experiment = 2
+    for task in EXP2_TASKS:
+        generate_recordings_pca(subjects=subjects, records=records, tasks=[task], experiment=experiment, n_components=10)
+    generate_recordings_pca(subjects=subjects, records=records, experiment=experiment, n_components=10)
 
-    x = numpy.arange(n_components)  # the label locations
-    width = 0.2  # the width of the bars
-
-    fig, ax = plt.subplots()
-    # fig.set_size_inches((7, 5))
-    # for t in thresholds:
-    rects = ax.bar(x, pca.explained_variance_ratio_*100, width)
-
-    # Add some text for labels, title and custom x-axis tick labels, etc.
-    ax.set_ylabel('Percentage of variance explained')
-    ax.set_xlabel('Components')
-    ax.set_title('PCA on %d stable grasps - KINE_ADL_BE_UJI dataset'
-                 '\nsubjects:(%d-%d)-records:(%d-%d)' % (stable_grasps.shape[0],
-                                                         min(subjects), max(subjects),
-                                                         min(records), max(records)))
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels)
-    ax.grid()
-
-    fig.tight_layout()
-    plt.savefig('media/pca/E%d/pca-sub_(%d-%d)-records_(%d-%d).png' %
-                (experiment, min(subjects), max(subjects),
-                 min(records), max(records)))
-    plt.show()
-
+    # # Deformable objects ids: [31, 32 33, 26, 43]
+    # # Analyse the entire experiment 1 stable grasps on deformable objects
+    # subjects = EXP2_SUBJECTS
+    # records = [201, 207, 209, 210]
+    # tasks = [1, 2, 19, 20, 21, 28, 30, 33, 34]
+    # experiment = 2
+    # generate_recordings_pca(subjects=subjects, records=records, tasks=tasks, experiment=experiment, n_components=10)
+    #

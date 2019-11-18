@@ -1,8 +1,15 @@
 
 *.ini
+*.pyc
 
 .vscode/
 
 .idea/workspace.xml
 
 /kine-adl-be-uji_dataset/
+
+.idea/
+
+.pytest_cache/v/cache/
+
+utils/__pycache__/
