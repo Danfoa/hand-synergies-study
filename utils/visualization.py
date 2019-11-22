@@ -90,3 +90,28 @@ def plot_task_data(df, block=False):
         plt.pause(0.5)
     else:
         plt.show()
+
+def get_configured_plot(df):
+
+    subjects = numpy.unique(df[ExperimentFields.subject.value].values)
+    experiment = numpy.unique(df[ExperimentFields.experiment.value].values)
+    tasks = numpy.unique(df[ExperimentFields.task_id.value].values)
+    records = numpy.unique(df[ExperimentFields.record_id.value].values)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex='all')
+    fig.set_size_inches(17, 10)
+    ax1.set_title('Right Hand')
+    ax1.set_ylabel('Angle position [deg]')
+    ax1.grid()
+    ax1.legend([e.value for e in RightHand])
+    ax2.set_title('Left Hand')
+    ax2.set_ylabel('Angle position [deg]')
+    ax2.set_xlabel('Time [s]')
+    ax2.grid()
+    ax2.legend([e.value for e in LeftHand])
+
+    fig.suptitle("Subject: %s - Experiment: %s \n Record: %s - Task: %s" %
+                 (subjects, experiment, records, tasks))
+    plt.autoscale(True)
+
+    return fig, ax1, ax2
