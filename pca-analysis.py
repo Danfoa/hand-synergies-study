@@ -13,10 +13,13 @@ DATABASE_PATH = 'kine-adl-be-uji_dataset/CSV DATA'
 
 
 def generate_recordings_pca(subjects, records, experiment, tasks=None, n_components=10):
+    
     df = load_static_grasps(database_path=DATABASE_PATH,
                             subjects_id=subjects,
                             experiment_number=experiment,
-                            records_id=records)
+                            records_id=records,
+                            tasks_id=tasks)
+                    
 
     print("Analysing records with shape ", df.shape)
 
@@ -36,40 +39,50 @@ def generate_recordings_pca(subjects, records, experiment, tasks=None, n_compone
     right_hand_pca.fit_transform(right_hand_stable_grasps)
 
     # Save data into figure
-    title = 'PCA on %d stable grasps - KINE_ADL_BE_UJI dataset \nsubjects:(%d-%d)-records:(%d-%d)' \
-            % (left_hand_stable_grasps.shape[0],
-               min(subjects), max(subjects),
-               min(records), max(records))
-    path = 'media/pca/E%d/pca-sub_(%d-%d)-Tasks_(%d).png' % (experiment,
-                                                                  min(subjects), max(subjects),
-                                                                  # min(records), max(records),
-                                                                             tasks[0])
+    subjects_string = "sub=" + str(subjects) if len(subjects) == 1 else "sub=(%d-%d)" % (min(subjects), max(subjects))
+    tasks_string = "task=" + str(tasks) if len(tasks) == 1 else "tasks=(%d-%d)" % (min(tasks), max(tasks))
+    records_string = "record=" + str(records) if len(records) == 1 else "records=(%d-%d)" % (min(records), max(records))
 
-    plot_pca_variances(left_hand_pca, right_hand_pca, title=title, save_path=path)
+    title = ('PCA on %d stable grasps - KINE_ADL_BE_UJI dataset \n' % left_hand_stable_grasps.shape[0])  + subjects_string + ' - ' + records_string + ' - ' + tasks_string
+    path = ('media/pca/E%d/pca-' %  experiment) + subjects_string + ' - ' + records_string + ' - ' + tasks_string
+                                                         
+    plot_pca_variances(left_hand_pca, right_hand_pca, title=title, save_path=path + '.png')
 
+    # Save eigenvalues and eigenvectors of experiment 
+    numpy.savez(path, right_eigenvectors=right_hand_pca.components_, right_eigenvalues=right_hand_pca.explained_variance_, 
+                left_eigenvectors=left_hand_pca.components_, left_eigenvalues=left_hand_pca.explained_variance_)
 
 if __name__ == '__main__':
 
+    # Compute task specific PC's across all subjects. -------------------------------------------------------------------
+    # # Analyse the entire experiment 1 stable grasps
+    # subjects = EXP1_SUBJECTS
+    # records = EXP1_RECORDS
+    # experiment = 1
+    # for task in EXP1_TASKS:
+    #     generate_recordings_pca(subjects=subjects, records=records, tasks=[task], experiment=experiment, n_components=10)
+
+    # # Analyse the entire experiment 2 stable grasps
+    # subjects = EXP2_SUBJECTS
+    # records = EXP2_RECORDS
+    # experiment = 2
+    # for task in EXP2_TASKS:
+        # generate_recordings_pca(subjects=subjects, records=records, tasks=[task], experiment=experiment, n_components=10)
+
+    # Compute Subject specific PC's -------------------------------------------------------------------------------------
     # Analyse the entire experiment 1 stable grasps
-    subjects = EXP1_SUBJECTS
-    records = EXP1_RECORDS
-    experiment = 1
-    for task in EXP1_TASKS:
-        generate_recordings_pca(subjects=subjects, records=records, tasks=[task], experiment=experiment, n_components=10)
+    # subjects = EXP1_SUBJECTS
+    # records = EXP1_RECORDS
+    # experiment = 1
+    # tasks = EXP1_TASKS
+    # for subject in EXP1_SUBJECTS:
+    #     generate_recordings_pca(subjects=[subject], records=records, tasks=tasks, experiment=experiment, n_components=10)
 
     # Analyse the entire experiment 2 stable grasps
-    subjects = EXP2_SUBJECTS
     records = EXP2_RECORDS
     experiment = 2
-    for task in EXP2_TASKS:
-        generate_recordings_pca(subjects=subjects, records=records, tasks=[task], experiment=experiment, n_components=10)
-    generate_recordings_pca(subjects=subjects, records=records, experiment=experiment, n_components=10)
+    tasks = EXP2_TASKS
+    for subject in EXP2_SUBJECTS:
+        generate_recordings_pca(subjects=[subject], records=records, tasks=tasks, experiment=experiment, n_components=10)
 
-    # # Deformable objects ids: [31, 32 33, 26, 43]
-    # # Analyse the entire experiment 1 stable grasps on deformable objects
-    # subjects = EXP2_SUBJECTS
-    # records = [201, 207, 209, 210]
-    # tasks = [1, 2, 19, 20, 21, 28, 30, 33, 34]
-    # experiment = 2
-    # generate_recordings_pca(subjects=subjects, records=records, tasks=tasks, experiment=experiment, n_components=10)
-    #
+   

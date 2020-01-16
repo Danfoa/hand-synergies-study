@@ -9,3 +9,5 @@
 /kine-adl-be-uji_dataset/
 
 .idea/
+
+.pytest_cache/
