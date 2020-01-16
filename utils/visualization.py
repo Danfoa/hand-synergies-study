@@ -2,9 +2,9 @@ import pandas
 import numpy
 import matplotlib.pyplot as plt
 
-from utils.data_loader import ExperimentFields
-from utils.data_loader import RightHand
-from utils.data_loader import LeftHand
+from utils.data_loader_kine_adl import ExperimentFields
+from utils.data_loader_kine_adl import RightHand
+from utils.data_loader_kine_adl import LeftHand
 
 
 def plot_pca_variances(left_pca, right_pca, title, save_path=None):

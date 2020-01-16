@@ -5,7 +5,7 @@ import pandas
 from sklearn.decomposition import PCA
 
 from utils.visualization import *
-from utils.data_loader import *
+from utils.data_loader_kine_adl import *
 import os
 
 

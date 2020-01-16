@@ -11,7 +11,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 
 from utils.visualization import *
-from utils.data_loader import *
+from utils.data_loader_kine_adl import *
 
 from sensor_msgs.msg import JointState
 from rosgraph_msgs.msg import Clock
