@@ -105,10 +105,10 @@ if __name__ == '__main__':
     rospy.init_node('manipulation_visualizer')
 
     # Declare publishers 
-    time_pub = rospy.Publisher('/clock', Clock, queue_size=1)
-    js_pub = rospy.Publisher('/db_joint_states', JointState, queue_size=50)
+    time_pub = rospy.Publisher('/clock', Clock, queue_size=100)
+    js_pub = rospy.Publisher('/db_joint_states', JointState, queue_size=100)
 
-    df = load_subject_data(DATABASE_PATH, subject_id=1, experiment_number=1,
+    df = load_subject_data(DATABASE_PATH, subject_id=12, experiment_number=1,
                            task_id=None, records_id=list(range(101, 134)))
     # plot_task_data(df)
     # print(df.shape)
@@ -150,13 +150,14 @@ if __name__ == '__main__':
         sim_time = rospy.Time.from_sec(df.at[iter, ExperimentFields.time.value] + time_offset) 
 
         # Published simulated time stamp 
-        time_msg = Clock()
-        time_msg.clock = sim_time
-        time_pub.publish(time_msg)
+        # time_msg = Clock()
+        # time_msg.clock = sim_time
+        # time_pub.publish(time_msg)
+        p_time = rospy.Time()
 
         # Create joint state msgs 
         js_right = create_joint_state_msg(df.iloc[iter,:], RightHand)
-        js_right.header.stamp = time_msg.clock
+        js_right.header.stamp = p_time
         js_right.header.seq = iter 
 
         # js_left = create_joint_state_msg(df.iloc[iter,:], LeftHand)
@@ -166,7 +167,6 @@ if __name__ == '__main__':
             # time_offset = sim_time.to_sec()
             iter = 0
             print("..")
-        sleep_time = df.at[iter+1, ExperimentFields.time.value] - df.at[iter, ExperimentFields.time.value]
         if plot_data:
             for line, key in zip(lines, RightHand):
                 line.set_xdata(df.loc[:iter+1, ExperimentFields.time.value])
@@ -178,7 +178,11 @@ if __name__ == '__main__':
             # fig.canvas.blit(ax1.bbox)
             fig.canvas.flush_events()
         # plt.pause(sleep_time)
-        if sleep_time > 0:
-            time.sleep(sleep_time)
+        records_dt = df.at[iter+1, ExperimentFields.time.value] - df.at[iter, ExperimentFields.time.value]
+
+        enlapsed_dt = (rospy.Time() - p_time).to_sec()
+
+        if records_dt - enlapsed_dt > 0:
+            rospy.sleep(records_dt - enlapsed_dt)
         iter += 1
     rospy.signal_shutdown('done')

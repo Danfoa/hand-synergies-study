@@ -22,7 +22,7 @@ reflect = 1
 passive_joints = ['index_distal_joint', 'middle_distal_joint', 'ring_distal_joint', 'little_distal_joint']
 
 class RightHandJointNames(Enum):
-    cmc1_f = 'rh_' + 'thumb_proximal_joint' # Flexion+ / Extension -
+    cmc1_f = 'rh_' + 'thumb_proximal_joint'  # Flexion+ / Extension -
     cmc1_a = 'rh_' + 'thumb_abduction_joint' # Abduction+ / Adduction-
     mpc1_f = 'rh_' + 'thumb_middle_joint'
     ip1_f = 'rh_' + 'thumb_distal_joint'
@@ -64,19 +64,18 @@ class LeftHandJointNames(Enum):
 
 def create_joint_state_msg(recordings, hand_keys, right_hand=True):
     assert isinstance(hand_keys, RightHand.__class__) or isinstance(hand_keys, LeftHand.__class__)
-
     js = JointState()
     # Set time to recording simulated time
     joint_names = RightHandJointNames if right_hand else LeftHandJointNames
     prefix = 'rh_' if right_hand else 'lh_'
     abduction_joints = ['index_abduction_joint', 'middle_abduction_joint', 
                         'ring_abduction_joint','little_abduction_joint']
-
+    thumb_offset_joints = ['thumb_middle_joint', 'thumb_proximal_joint']
     # Set normal joint position values directly 
     for joint in joint_names:
         # print(joint.value)
         # print([prefix + s for s in abduction_joints])
-        if not joint.value in [prefix + s for s in abduction_joints]:
+        if not joint.value in [prefix + s for s in abduction_joints] and not joint.value in thumb_offset_joints:
             js.name.append(joint.value)  # Add ROS joint name
             js.velocity.append(0)
             js.effort.append(0)
@@ -84,12 +83,17 @@ def create_joint_state_msg(recordings, hand_keys, right_hand=True):
         # else:
         #     print(joint.value)
 
+    if  prefix == 'rh_':
+        print(recordings[hand_keys.ip1_f.value])
+        rospy.sleep(0.005)
+
+
     reflect = 1 #if right_hand else -1
 
     js.name.append(prefix + 'index_abduction_joint')
     js.velocity.append(0)
     js.effort.append(0)
-    js.position.append(recordings[hand_keys.mcp23_a.value] * math.pi/180*-1)
+    js.position.append(recordings[hand_keys.mcp23_a.value] * math.pi/180 * -1)
 
     js.name.append(prefix + 'middle_abduction_joint')
     js.velocity.append(0)
@@ -106,13 +110,42 @@ def create_joint_state_msg(recordings, hand_keys, right_hand=True):
     js.effort.append(0)
     js.position.append((recordings[hand_keys.mcp45_a.value] + recordings[hand_keys.mcp34_a.value]) * math.pi/180 * reflect)
 
+    js.name.append(prefix + 'thumb_middle_joint')
+    js.velocity.append(0)
+    js.effort.append(0)
+    js.position.append((recordings[hand_keys.mpc1_f.value] + 22.9) * math.pi/180)
 
+
+    js.name.append(prefix + 'thumb_proximal_joint')
+    js.velocity.append(0)
+    js.effort.append(0)
+    js.position.append((recordings[hand_keys.cmc1_f.value] + 11.4) * math.pi/180)
+    
     # Add passive joints 
-    for passive_joint in passive_joints:
-        js.name.append(prefix + passive_joint)
-        js.velocity.append(0)
-        js.effort.append(0)
-        js.position.append(0)
+# passive_joints = ['index_distal_joint', 'middle_distal_joint', 'ring_distal_joint', 'little_distal_joint']
+    DIP_SCALER = 2./3.
+    DIP_BIAS = 0
+
+    js.name.append(prefix + 'index_distal_joint')
+    js.velocity.append(0)
+    js.effort.append(0)
+    js.position.append((recordings[hand_keys.mcp2_f.value] * DIP_SCALER + DIP_BIAS) * math.pi/180)
+    
+    js.name.append(prefix + 'middle_distal_joint')
+    js.velocity.append(0)
+    js.effort.append(0)
+    js.position.append((recordings[hand_keys.mcp3_f.value] * DIP_SCALER + DIP_BIAS) * math.pi/180)
+    
+    js.name.append(prefix + 'ring_distal_joint')
+    js.velocity.append(0)
+    js.effort.append(0)
+    js.position.append((recordings[hand_keys.mcp4_f.value] * DIP_SCALER + DIP_BIAS) * math.pi/180)
+    
+    js.name.append(prefix + 'little_distal_joint')
+    js.velocity.append(0)
+    js.effort.append(0)
+    js.position.append((recordings[hand_keys.mcp5_f.value] * DIP_SCALER + DIP_BIAS) * math.pi/180)
+    
     return js
 
 
@@ -123,8 +156,8 @@ if __name__ == '__main__':
     time_pub = rospy.Publisher('/clock', Clock, queue_size=100)
     js_pub = rospy.Publisher('/joint_states', JointState, queue_size=100)
 
-    df = load_subject_data(DATABASE_PATH, subject_id=6, experiment_number=1,
-                           task_id=None, records_id=list(range(101, 134)))
+    df = load_subject_data(DATABASE_PATH, subject_id=3, experiment_number=2,
+                           task_id=None, records_id=EXP2_RECORDS)
     # plot_task_data(df)
     # print(df.shape)
     # Get all right hand joint positions over time 
@@ -135,7 +168,7 @@ if __name__ == '__main__':
     iter = 0
     time_offset = 0.
 
-    plot_data = False
+    plot_data = False 
     if plot_data:
         # Configure ploting
         plt.ion()
@@ -186,6 +219,8 @@ if __name__ == '__main__':
         js_pub.publish(js_left)
 
         if iter == df.shape[0]-1:
+            print("end")
+            rospy.sleep(2)
             iter = 0
 
         if plot_data:
@@ -215,7 +250,7 @@ if __name__ == '__main__':
 
         records_dt = df.at[iter+1, ExperimentFields.time.value] - df.at[iter, ExperimentFields.time.value]
         enlapsed_dt = rospy.get_time() - p_time.secs
-        print("%.4f - %.4e = %.4f %d" % (records_dt, enlapsed_dt, records_dt-enlapsed_dt, records_dt-enlapsed_dt > 0))
+        # print("%.4f - %.4e = %.4f %d" % (records_dt, enlapsed_dt, records_dt-enlapsed_dt, records_dt-enlapsed_dt > 0))
 
         if records_dt - enlapsed_dt > 0:
             rospy.sleep((records_dt - enlapsed_dt)*2)
