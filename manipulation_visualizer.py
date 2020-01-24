@@ -106,13 +106,32 @@ def create_joint_state_msg(recordings, hand_keys, right_hand=True):
     js.effort.append(0)
     js.position.append((recordings[hand_keys.mcp45_a.value] + recordings[hand_keys.mcp34_a.value]) * math.pi/180 * reflect)
 
+    # Use estimated DIP joint angles following the regression models obtained in"
+    # "Across-subject calibration of an instrumented glove to measure hand movement for clinical purposes" Verónica Gracia-Ibáñez et.al.
+    js.name.append(prefix + 'index_distal_joint')
+    estimated_angle = 0.87 * recordings[hand_keys.pip2_f.value] - 25.27
+    js.position.append(estimated_angle * math.pi/180)
+    js.velocity.append(0)
+    js.effort.append(0)
 
-    # Add passive joints 
-    for passive_joint in passive_joints:
-        js.name.append(prefix + passive_joint)
-        js.velocity.append(0)
-        js.effort.append(0)
-        js.position.append(0)
+    js.name.append(prefix + 'middle_distal_joint')
+    estimated_angle = 0.79 * recordings[hand_keys.pip3_f.value] - 18.33
+    js.position.append(estimated_angle * math.pi/180)
+    js.velocity.append(0)
+    js.effort.append(0)
+
+    js.name.append(prefix + 'ring_distal_joint')
+    estimated_angle = 0.73 * recordings[hand_keys.pip4_f.value] - 20.54
+    js.position.append(estimated_angle * math.pi/180)
+    js.velocity.append(0)
+    js.effort.append(0)
+
+    js.name.append(prefix + 'little_distal_joint')
+    estimated_angle = 0.84 * recordings[hand_keys.pip5_f.value] - 12.42
+    js.position.append(estimated_angle * math.pi/180)
+    js.velocity.append(0)
+    js.effort.append(0)
+
     return js
 
 
@@ -123,8 +142,8 @@ if __name__ == '__main__':
     time_pub = rospy.Publisher('/clock', Clock, queue_size=100)
     js_pub = rospy.Publisher('/joint_states', JointState, queue_size=100)
 
-    df = load_subject_data(DATABASE_PATH, subject_id=6, experiment_number=1,
-                           task_id=None, records_id=list(range(101, 134)))
+    df = load_subject_data(DATABASE_PATH, subject_id=13, experiment_number=2,
+                           task_id=None, records_id=None)
     # plot_task_data(df)
     # print(df.shape)
     # Get all right hand joint positions over time 
@@ -186,6 +205,7 @@ if __name__ == '__main__':
         js_pub.publish(js_left)
 
         if iter == df.shape[0]-1:
+            rospy.sleep(5)
             iter = 0
 
         if plot_data:
