@@ -10,8 +10,8 @@ import matplotlib
 # matplotlib.use('GTKAgg')
 from matplotlib import pyplot as plt
 
-from utils.visualization import *
-from utils.data_loader_kine_adl import *
+from utils.visualization_MUS import *
+from utils.data_loader_kine_mus import *
 
 from sensor_msgs.msg import JointState
 from rosgraph_msgs.msg import Clock
@@ -22,112 +22,89 @@ reflect = 1
 passive_joints = ['index_distal_joint', 'middle_distal_joint', 'ring_distal_joint', 'little_distal_joint']
 
 class RightHandJointNames(Enum):
-    cmc1_f = 'rh_' + 'thumb_proximal_joint' # Flexion+ / Extension -
-    cmc1_a = 'rh_' + 'thumb_abduction_joint' # Abduction+ / Adduction-
-    mpc1_f = 'rh_' + 'thumb_middle_joint'
-    ip1_f = 'rh_' + 'thumb_distal_joint'
-    mcp2_f = 'rh_' + 'index_proximal_joint'
-    mcp23_a = 'rh_' + 'index_abduction_joint'
-    pip2_f = 'rh_' + 'index_middle_joint'
-    mcp3_f = 'rh_' + 'middle_proximal_joint'
-    pip3_f = 'rh_' + 'middle_middle_joint'
-    mcp4_f = 'rh_' + 'ring_proximal_joint'
-    mcp34_a = 'rh_' + 'middle_abduction_joint'
-    pip4_f = 'rh_' + 'ring_middle_joint'
+    cmc1_f = 'thumb_proximal_joint' # Flexion+ / Extension -
+    cmc1_a = 'thumb_abduction_joint' # Abduction+ / Adduction-
+    mpc1_f = 'thumb_middle_joint'
+    ip1_f = 'thumb_distal_joint'
+    mcp2_f = 'index_proximal_joint'
+    mcp23_a = 'index_abduction_joint'
+    pip2_f = 'index_middle_joint'
+    mcp3_f = 'middle_proximal_joint'
+    pip3_f = 'middle_middle_joint'
+    mcp4_f = 'ring_proximal_joint'
+    mcp34_a = 'middle_abduction_joint'
+    pip4_f = 'ring_middle_joint'
     # palm_arch = 'R_PalmArch'
-    mcp5_f = 'rh_' + 'little_proximal_joint'
-    mcp45_a = 'rh_' + 'ring_abduction_joint'
-    pip5_f = 'rh_' + 'little_middle_joint'
+    mcp5_f = 'little_proximal_joint'
+    mcp45_a = 'ring_abduction_joint'
+    pip5_f = 'little_middle_joint'
     # wr_f = 'R_WR_F'   # Data missing in exp 1
     # wr_a = 'R_WR_A'   # Data missing in exp 1
 
-class LeftHandJointNames(Enum):
-    cmc1_f = 'lh_' + 'thumb_proximal_joint'  # Flexion+ / Extension -
-    cmc1_a = 'lh_' + 'thumb_abduction_joint'  # Abduction+ / Adduction-
-    mpc1_f = 'lh_' + 'thumb_middle_joint'
-    ip1_f = 'lh_' + 'thumb_distal_joint'
-    mcp2_f = 'lh_' + 'index_proximal_joint'
-    mcp23_a = 'lh_' + 'index_abduction_joint'
-    pip2_f = 'lh_' + 'index_middle_joint'
-    mcp3_f = 'lh_' + 'middle_proximal_joint'
-    pip3_f = 'lh_' + 'middle_middle_joint'
-    mcp4_f = 'lh_' + 'ring_proximal_joint'
-    mcp34_a = 'lh_' + 'middle_abduction_joint'
-    pip4_f = 'lh_' + 'ring_middle_joint'
-    # palm_arch = 'R_PalmArch'
-    mcp5_f = 'lh_' + 'little_proximal_joint'
-    mcp45_a = 'lh_' + 'ring_abduction_joint'
-    pip5_f = 'lh_' + 'little_middle_joint'
-    # wr_f = 'R_WR_F'   # Data missing in exp 1
-    # wr_a = 'R_WR_A'   # Data missing in exp 1
+def create_joint_state_msg(recordings, hand_keys):
 
-
-def create_joint_state_msg(recordings, hand_keys, right_hand=True):
-    assert isinstance(hand_keys, RightHand.__class__) or isinstance(hand_keys, LeftHand.__class__)
+    assert isinstance(hand_keys, RightHand.__class__) 
 
     js = JointState()
     # Set time to recording simulated time
     joint_names = RightHandJointNames if right_hand else LeftHandJointNames
-    prefix = 'rh_' if right_hand else 'lh_'
     abduction_joints = ['index_abduction_joint', 'middle_abduction_joint', 
                         'ring_abduction_joint','little_abduction_joint']
 
     # Set normal joint position values directly 
     for joint in joint_names:
         # print(joint.value)
-        # print([prefix + s for s in abduction_joints])
-        if not joint.value in [prefix + s for s in abduction_joints]:
+        # print([s for s in abduction_joints])
+        if not joint.value in abduction_joints:
             js.name.append(joint.value)  # Add ROS joint name
             js.velocity.append(0)
             js.effort.append(0)
             js.position.append(recordings[hand_keys[joint.name].value] * math.pi/180 )
-        # else:
-        #     print(joint.value)
 
-    reflect = 1 #if right_hand else -1
 
-    js.name.append(prefix + 'index_abduction_joint')
+    reflect = 1 
+    # ABDUCTION JOINTS 
+    js.name.append('index_abduction_joint')
     js.velocity.append(0)
     js.effort.append(0)
     js.position.append(recordings[hand_keys.mcp23_a.value] * math.pi/180*-1)
 
-    js.name.append(prefix + 'middle_abduction_joint')
+    js.name.append('middle_abduction_joint')
     js.velocity.append(0)
     js.effort.append(0)
     js.position.append(0)
 
-    js.name.append(prefix + 'ring_abduction_joint')
+    js.name.append('ring_abduction_joint')
     js.velocity.append(0)
     js.effort.append(0)
     js.position.append((recordings[hand_keys.mcp34_a.value] * math.pi/180) * reflect)
         
-    js.name.append(prefix + 'little_abduction_joint')
+    js.name.append('little_abduction_joint')
     js.velocity.append(0)
     js.effort.append(0)
     js.position.append((recordings[hand_keys.mcp45_a.value] + recordings[hand_keys.mcp34_a.value]) * math.pi/180 * reflect)
 
-    # Use estimated DIP joint angles following the regression models obtained in"
-    # "Across-subject calibration of an instrumented glove to measure hand movement for clinical purposes" Veronica Gracia-Ibanez et.al.
-    js.name.append(prefix + 'index_distal_joint')
+    # DIP `passive` JOINTS 
+    js.name.append('index_distal_joint')
     estimated_angle = 0.87 * recordings[hand_keys.pip2_f.value] - 25.27
     js.position.append(estimated_angle * math.pi/180)
     js.velocity.append(0)
     js.effort.append(0)
 
-    js.name.append(prefix + 'middle_distal_joint')
+    js.name.append('middle_distal_joint')
     estimated_angle = 0.79 * recordings[hand_keys.pip3_f.value] - 18.33
     js.position.append(estimated_angle * math.pi/180)
     js.velocity.append(0)
     js.effort.append(0)
 
-    js.name.append(prefix + 'ring_distal_joint')
+    js.name.append('ring_distal_joint')
     estimated_angle = 0.73 * recordings[hand_keys.pip4_f.value] - 20.54
     js.position.append(estimated_angle * math.pi/180)
     js.velocity.append(0)
     js.effort.append(0)
 
-    js.name.append(prefix + 'little_distal_joint')
-    estimated_angle = 0.84 * recordings[hand_keys.pip5_f.value] - 12.42
+    js.name.append('little_distal_joint')
+    estimated_angle = 0.84 * recordings[hand_keys.pip4_f.value] - 12.42
     js.position.append(estimated_angle * math.pi/180)
     js.velocity.append(0)
     js.effort.append(0)
@@ -136,7 +113,7 @@ def create_joint_state_msg(recordings, hand_keys, right_hand=True):
 
 
 if __name__ == '__main__':
-    rospy.init_node('manipulation_visualizer')
+    rospy.init_node('mus_manipulation_visualizer')
 
     # Declare publishers 
     time_pub = rospy.Publisher('/clock', Clock, queue_size=100)
