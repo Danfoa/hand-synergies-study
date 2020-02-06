@@ -1,5 +1,11 @@
+from utils.data_loader_kine_mus import *
+
 import tensorflow as tf
 from tensorflow.python.keras import layers
+
+import matplotlib.pyplot as plt
+import numpy as np
+import io
 
 
 class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
@@ -45,6 +51,47 @@ class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         self.batch_offset = self.absolute_batch
+
+
+class EmbeddingSpaceLogger(tf.keras.callbacks.Callback):
+
+    def __init__(self, df, X, log_dir, name='train'):
+        self.log_dir = log_dir
+        self.df = df
+        self.X = X
+        self.name = name
+
+    def on_train_begin(self, logs=None):
+        self.on_epoch_end(-1)
+
+    def on_epoch_end(self, epoch, logs=None):
+        print("printing embedding")
+        phases = self.df[ExperimentFields.phase.value].values
+
+        figure = plt.figure(figsize=(10, 10))
+        z_mean, z_log_var, z = self.model.layers[1](self.X)
+        print(z_mean.shape)
+        print(phases.shape)
+        z_mean = np.array(z_mean)
+        plt.scatter(z_mean[phases == 2, 0], z_mean[phases == 2, 1], c='r', alpha=1, label="Manipulation")
+        plt.scatter(z_mean[phases == 3, 0], z_mean[phases == 3, 1], marker='+', c='k', alpha=0.5, label="Retreat")
+        plt.scatter(z_mean[phases == 1, 0], z_mean[phases == 1, 1], marker='2', c='b', alpha=0.5, label="Approach")
+
+        plt.legend()
+        #
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        # Closing the figure prevents it from being displayed directly inside
+        # the notebook.
+        plt.close(figure)
+        buf.seek(0)
+        # Convert PNG buffer to TF image
+        image = tf.image.decode_png(buf.getvalue(), channels=4)
+        # Add the batch dimension
+        image = tf.expand_dims(image, 0)
+
+        with tf.summary.create_file_writer(self.log_dir).as_default():
+            tf.summary.image("Embedding Space", image, step=epoch)
 
 
 class Sampling(layers.Layer):

@@ -1,57 +1,13 @@
 from utils.data_loader_kine_mus import *
 
-from models.VAE import VariationalAutoEncoder, CyclicalAnnealingSchedule, Encoder, Decoder, KLDivergence
+from models.VAE import VariationalAutoEncoder, EmbeddingSpaceLogger, CyclicalAnnealingSchedule, Encoder, Decoder, KLDivergence
 import tensorflow as tf
 from tensorboard.plugins.hparams import api as hp
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-import io
-
-
-class ImageLogger(tf.keras.callbacks.Callback):
-
-    def __init__(self, df, X, train_summary_writer, name=''):
-        self.train_summary_writer = train_summary_writer
-        self.df = df
-        self.X = X
-        self.name = name
-
-    def on_train_begin(self, logs=None):
-        self.on_epoch_end(-1)
-
-    def on_epoch_end(self, epoch, logs=None):
-        print("printing embedding")
-        phases = self.df[ExperimentFields.phase.value].values
-
-        figure = plt.figure(figsize=(10, 10))
-        z_mean, z_log_var, z = self.model.layers[1](self.X)
-        print(z_mean.shape)
-        print(phases.shape)
-        z_mean = np.array(z_mean)
-        plt.scatter(z_mean[phases == 2, 0], z_mean[phases == 2, 1], c='r', alpha=1, label="Manipulation")
-        plt.scatter(z_mean[phases == 3, 0], z_mean[phases == 3, 1], marker='+', c='k', alpha=0.5, label="Retreat")
-        plt.scatter(z_mean[phases == 1, 0], z_mean[phases == 1, 1], marker='2', c='b', alpha=0.5, label="Approach")
-
-        plt.legend()
-        #
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        # Closing the figure prevents it from being displayed directly inside
-        # the notebook.
-        plt.close(figure)
-        buf.seek(0)
-        # Convert PNG buffer to TF image
-        image = tf.image.decode_png(buf.getvalue(), channels=4)
-        # Add the batch dimension
-        image = tf.expand_dims(image, 0)
-
-        with self.train_summary_writer.as_default():
-            tf.summary.image("Embedding Space", image, step=epoch)
-
 
 if __name__ == '__main__':
     # Load the dataset
@@ -142,5 +98,5 @@ if __name__ == '__main__':
                                                              summary_writer=train_summary_writer),
                                    tensorboard_callback,
                                    tf.keras.callbacks.TerminateOnNaN(),
-                                   ImageLogger(df_train, X_train, train_summary_writer)
+                                   EmbeddingSpaceLogger(df_train, X_train, train_summary_writer)
                         ])
