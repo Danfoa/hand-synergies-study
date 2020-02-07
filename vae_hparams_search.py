@@ -57,23 +57,25 @@ if __name__ == '__main__':
 
     num_instances = X_train.shape[0]
 
-    HP_LR = hp.HParam('learning_rate', hp.RealInterval(0.0001, 0.01))
-    HP_LATENT_DIM = hp.HParam('latent_dim', hp.Discrete([1, 2, 3, 4, 5]))
+    HP_LR = hp.HParam('learning_rate', hp.RealInterval(0.00001, 0.001))
+    HP_LATENT_DIM = hp.HParam('latent_dim', hp.Discrete([2, 3, 4, 5]))
     HP_HD = hp.HParam('hidden_dimensions', hp.Discrete([30, 50, 80, 100, 150, 300]))
-    HP_ANNEALING_CYCLES = hp.HParam('annealing_cycles', hp.Discrete([2, 4, 6, 8]))
+    HP_ANNEALING_CYCLES = hp.HParam('annealing_cycles', hp.Discrete([1, 2, 4, 6, 8]))
 
-    hparams_log_dir = "models/vae-hparam-log/hparam_tuning"
+    hparams_log_dir = "models/vae-logs"
     hparams_writer = tf.summary.create_file_writer(hparams_log_dir)
 
     TEST_RECONSTRUCTION = 'test_reconstruction_MSE'
     with hparams_writer.as_default():
         hp.hparams_config(
             hparams=[HP_LR, HP_HD, HP_LATENT_DIM, HP_ANNEALING_CYCLES],
-            metrics=['reconstruction_MAE_loss', 'reconstruction_MSE_loss', TEST_RECONSTRUCTION]
+            metrics=[hp.Metric('epoch_loss', display_name='epoch_loss'),
+                     hp.Metric('epoch_kl_loss', display_name='epoch_kl_loss'),
+                     hp.Metric('epoch_reconstruction_MAE_loss', display_name='epoch_MAE_loss')]
         )
 
-    epochs = 10
-    batch_size = 32
+    epochs = 2
+    batch_size = 100
     for latent_dim in HP_LATENT_DIM.domain.values:
         for intermediate_dim in [75, 30, 90, 150]:
             for lr in np.linspace(HP_LR.domain.min_value, HP_LR.domain.max_value, 10):
@@ -90,6 +92,7 @@ if __name__ == '__main__':
                                                                                        latent_dim, cycles)
 
                     vae = get_compiled_vae_model(lr=lr, latent_dim=latent_dim, intermediate_dim=intermediate_dim)
+                    print(vae.layers)
 
                     vae.fit(X_train, X_train,
                             epochs=epochs,
@@ -97,12 +100,13 @@ if __name__ == '__main__':
                             batch_size=batch_size,
                             validation_split=0.0,
                             workers=4,
-                            callbacks=[tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1,
+                            callbacks=[tf.keras.callbacks.TerminateOnNaN(),
+                                       tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1,
                                                                       update_freq='batch', profile_batch=0),
-                                       tf.keras.callbacks.TerminateOnNaN(),
                                        hp.KerasCallback(hparams_log_dir, hparams),
-                                       CyclicalAnnealingSchedule(cycle_duration=1.87e6, summary_writer=hparams_writer),
-                                       EmbeddingSpaceLogger(df_train, X_train, log_dir, 'train')
+                                       CyclicalAnnealingSchedule(cycles=cycles, database_size=X_train.shape[0],
+                                                                 epochs=epochs, log_dir=log_dir),
+                                       EmbeddingSpaceLogger(df_train, X_train, log_dir)
                                        ])
                     # Evaluate model with test set
                     X_reconstructed = vae.predict(X_test)

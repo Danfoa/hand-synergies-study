@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     for batch_size in [32, 16]:
         for intermediate_dim in [75, 30, 90, 150]:
-            for lr in np.linspace(0.011, 0.0001, 10):
+            for lr in np.linspace(0.005, 0.00001, 10):
                 latent_dim = 2
                 epochs = 15
                 # Callbacks
@@ -80,13 +80,13 @@ if __name__ == '__main__':
 
                 # _______________________________________________________________________________
 
-                print(vae.layers)
+                # print(vae.layers)
 
                 tf.keras.utils.plot_model(vae, 'vae_model.png', show_shapes=True)
 
                 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1, update_freq='batch',
                                                                       profile_batch=0)
-
+                # try:
                 vae.fit(X_train, X_train,
                         epochs=epochs,
                         shuffle=True,
@@ -95,8 +95,11 @@ if __name__ == '__main__':
                         workers=4,
                         callbacks=[
                                    CyclicalAnnealingSchedule(cycle_duration=1.87e6,
-                                                             summary_writer=train_summary_writer),
+                                                             log_dir=train_summary_writer),
                                    tensorboard_callback,
                                    tf.keras.callbacks.TerminateOnNaN(),
                                    EmbeddingSpaceLogger(df_train, X_train, train_summary_writer)
                         ])
+                # except Exception:
+                #     print("Something went terribly wrong")
+

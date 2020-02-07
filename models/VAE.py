@@ -5,14 +5,16 @@ from tensorflow.python.keras import layers
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import io
 
 
 class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
 
-    def __init__(self, cycle_duration, summary_writer=None):
-        self.cycle_duration = cycle_duration
-        self.summary_writer = summary_writer
+    def __init__(self, cycles, database_size, epochs, log_dir=None):
+        training_instances = database_size * epochs
+        self.cycle_duration = training_instances / cycles
+        self.log_dir = log_dir
         self.processed_instances = 0
         self.instances_offset = 0
         self.absolute_batch = 0
@@ -45,8 +47,8 @@ class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
         elif state > self.cycle_duration:  # Restart cycle
             self.instances_offset = self.processed_instances
 
-        if self.summary_writer:
-            with self.summary_writer.as_default():
+        if self.log_dir:
+            with tf.summary.create_file_writer(self.log_dir + '/train').as_default():
                 tf.summary.scalar('kl_loss_weight', self.model.layers[3].kl_loss_weight, step=self.absolute_batch)
 
     def on_epoch_end(self, epoch, logs=None):
@@ -61,7 +63,21 @@ class EmbeddingSpaceLogger(tf.keras.callbacks.Callback):
         self.X = X
         self.name = name
 
+    def on_train_end(self, logs=None):
+        print("Saving embeddings to tf projector in %s" % self.log_dir)
+        z_mean, z_log_var, z = self.model.layers[1](self.X)
+        z_mean = np.array(z_mean)
+
+        # Save embeddings for each data instance
+        data_df = pd.DataFrame(data=z_mean)
+        data_df.to_csv(self.log_dir + "/vecs.tsv", sep='\t', index=False, header=False)
+
+        # Save metadata tsv file
+        metadata = self.df[[e.value for e in ExperimentFields]]
+        metadata.to_csv(self.log_dir + "/meta.tsv", sep='\t', index=False)
+
     def on_train_begin(self, logs=None):
+        # Save an embedding projection before training
         self.on_epoch_end(-1)
 
     def on_epoch_end(self, epoch, logs=None):
@@ -90,7 +106,7 @@ class EmbeddingSpaceLogger(tf.keras.callbacks.Callback):
         # Add the batch dimension
         image = tf.expand_dims(image, 0)
 
-        with tf.summary.create_file_writer(self.log_dir).as_default():
+        with tf.summary.create_file_writer(self.log_dir + '/train').as_default():
             tf.summary.image("Embedding Space", image, step=epoch)
 
 
