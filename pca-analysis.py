@@ -44,7 +44,7 @@ def generate_recordings_pca(subjects, records, experiment, tasks=None, n_compone
     records_string = "record=" + str(records) if len(records) == 1 else "records=(%d-%d)" % (min(records), max(records))
 
     title = ('PCA on %d stable grasps - KINE_ADL_BE_UJI dataset \n' % left_hand_stable_grasps.shape[0])  + subjects_string + ' - ' + records_string + ' - ' + tasks_string
-    path = ('media/pca/E%d/pca-' %  experiment) + subjects_string + ' - ' + records_string + ' - ' + tasks_string
+    path = ('media/pca/E%d/pca-' % experiment) + subjects_string + ' - ' + records_string + ' - ' + tasks_string
                                                          
     plot_pca_variances(left_hand_pca, right_hand_pca, title=title, save_path=path + '.png')
 
@@ -52,7 +52,15 @@ def generate_recordings_pca(subjects, records, experiment, tasks=None, n_compone
     numpy.savez(path, right_eigenvectors=right_hand_pca.components_, right_eigenvalues=right_hand_pca.explained_variance_, 
                 left_eigenvectors=left_hand_pca.components_, left_eigenvalues=left_hand_pca.explained_variance_)
 
+
 if __name__ == '__main__':
+
+    df = load_subjects_data(database_path=DATABASE_PATH,
+                            subjects_id=EXP1_SUBJECTS,
+                            experiment_number=1)
+
+    right_hand_data = df[[e.value for e in RightHand]]
+
 
     # Compute task specific PC's across all subjects. -------------------------------------------------------------------
     # # Analyse the entire experiment 1 stable grasps
