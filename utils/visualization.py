@@ -1,11 +1,46 @@
 import pandas
 import numpy
+import seaborn as sns
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from utils.data_loader_kine_adl import ExperimentFields
 from utils.data_loader_kine_adl import RightHand
 from utils.data_loader_kine_adl import LeftHand
 
+
+def plot_reconstruction_error(errors, labels, kin_labels,
+                              title="Reconstruction error"):
+    """
+    :param errors: List of DataFrames holding the error values to plot
+    :param labels: Label for each Dataframe in the `errors` dataframes
+    :param kin_labels: Labels of the variables to consider in the dataframes
+    :param title: Title of the plot
+    :return: None
+    """
+    print("Plotting ", title)
+    assert len(errors) == len(labels)
+
+    # Create column label to differentiate models
+    for df, label in zip(errors, labels):
+        df["model"] = label
+
+    concatenated = pd.concat(errors, axis=0, ignore_index=True)
+    df_plot = pd.melt(concatenated,
+                      id_vars=["model"],
+                      value_vars=kin_labels,
+                      var_name="Joint",
+                      value_name="Error")
+
+    s_plot = sns.catplot(x="Joint", y="Error", hue="model",
+                         kind="box", linewidth=0.8, fliersize=0.15,
+                         data=df_plot,
+                         aspect=2,
+                         orient='v',
+                         legend_out=False)
+    s_plot.set_xticklabels(rotation=45)
+    plt.title(title)
+    plt.show()
 
 def plot_pca_variances(left_pca, right_pca, title, save_path=None):
     plt.ioff()
