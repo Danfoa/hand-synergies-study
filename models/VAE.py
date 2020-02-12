@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import io
+import os
 
 
 class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
@@ -19,16 +20,11 @@ class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
         self.instances_offset = 0
         self.absolute_batch = 0
         self.batch_offset = 0
-        self.kl_divergence_layer = None
 
     def on_train_begin(self, logs=None):
-        for layer in self.model.layers:
-            if isinstance(layer, KLDivergence):
-                self.kl_divergence_layer = layer
-                print("KL divergence layer found: " + str(self.kl_divergence_layer.kl_loss_weight))
-
-        if self.kl_divergence_layer is None:
-            raise Exception("No KL divergence layer found in current model")
+        if self.model.kl_loss_weight is None:
+            raise Exception("VAE model must have a kl_loss_weight [`tf.Variable`] attribute")
+        self.model.kl_loss_weight.assign(0)
 
     def on_train_batch_end(self, batch, logs=None):
         self.processed_instances += logs['size']
@@ -36,20 +32,20 @@ class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
         state = (self.processed_instances - self.instances_offset) % self.cycle_duration
 
         if state <= self.cycle_duration / 3:
-            self.model.layers[3].kl_loss_weight.assign(0)
+            self.model.kl_loss_weight.assign(0)
 
         elif self.cycle_duration/3 <= state <= 2*self.cycle_duration/3:
-            self.model.layers[3].kl_loss_weight.assign((3 / self.cycle_duration) * (state - self.cycle_duration/3))
+            self.model.kl_loss_weight.assign((3 / self.cycle_duration) * (state - self.cycle_duration/3))
 
         elif self.cycle_duration >= state >= 2*self.cycle_duration/3:
-            self.model.layers[3].kl_loss_weight.assign(1)
+            self.model.kl_loss_weight.assign(1)
 
         elif state > self.cycle_duration:  # Restart cycle
             self.instances_offset = self.processed_instances
 
         if self.log_dir:
-            with tf.summary.create_file_writer(self.log_dir + '/train').as_default():
-                tf.summary.scalar('kl_loss_weight', self.model.layers[3].kl_loss_weight, step=self.absolute_batch)
+            with tf.summary.create_file_writer(os.path.join(self.log_dir, 'train')).as_default():
+                tf.summary.scalar('kl_loss_weight', self.model.kl_loss_weight, step=self.absolute_batch)
 
     def on_epoch_end(self, epoch, logs=None):
         self.batch_offset = self.absolute_batch
@@ -65,7 +61,7 @@ class EmbeddingSpaceLogger(tf.keras.callbacks.Callback):
 
     def on_train_end(self, logs=None):
         print("Saving embeddings to tf projector in %s" % self.log_dir)
-        z_mean, z_log_var, z = self.model.layers[1](self.X)
+        z_mean, z_log_var, z = self.model.encoder(self.X)
         z_mean = np.array(z_mean)
 
         # Save embeddings for each data instance
@@ -81,12 +77,16 @@ class EmbeddingSpaceLogger(tf.keras.callbacks.Callback):
         self.on_epoch_end(-1)
 
     def on_epoch_end(self, epoch, logs=None):
+        if epoch > 0 and epoch % 2 != 0:
+            return
         print("printing embedding")
         phases = self.df[ExperimentFields.phase.value].values
 
         figure = plt.figure(figsize=(10, 10))
-        z_mean, z_log_var, z = self.model.layers[1](self.X)
+        z_mean, z_log_var, z = self.model.encoder(self.X)
         print(z_mean.shape)
+        if z_mean.shape[1] > 2:
+            return
         print(phases.shape)
         z_mean = np.array(z_mean)
         plt.scatter(z_mean[phases == 2, 0], z_mean[phases == 2, 1], c='r', alpha=1, label="Manipulation")
@@ -106,7 +106,7 @@ class EmbeddingSpaceLogger(tf.keras.callbacks.Callback):
         # Add the batch dimension
         image = tf.expand_dims(image, 0)
 
-        with tf.summary.create_file_writer(self.log_dir + '/train').as_default():
+        with tf.summary.create_file_writer(os.path.join(self.log_dir, 'train')).as_default():
             tf.summary.image("Embedding Space", image, step=epoch)
 
 
@@ -193,6 +193,8 @@ class VariationalAutoEncoder(tf.keras.Model):
                  original_dim=18,
                  intermediate_dim=64,
                  latent_dim=2,
+                 kl_loss_weight=0.2,
+                 kl_loss_metric_name='kl_loss',
                  name='Autoencoder',
                  **kwargs):
         super(VariationalAutoEncoder, self).__init__(name=name, **kwargs)
@@ -201,8 +203,10 @@ class VariationalAutoEncoder(tf.keras.Model):
                                intermediate_dim=intermediate_dim)
         self.decoder = Decoder(original_dim=original_dim,
                                intermediate_dim=intermediate_dim)
-        self.kl_loss_weight = 0
-        self.step = 0
+
+        self.kl_loss_weight = tf.Variable(kl_loss_weight, dtype=tf.float32, trainable=False, name='kl_loss_weight')
+
+        self.kl_loss_metric_name = kl_loss_metric_name
 
     def call(self, inputs):
         # Forward pass of the Encoder
@@ -210,9 +214,14 @@ class VariationalAutoEncoder(tf.keras.Model):
         # Forward pass of the Decoder taken the re-parameterized z latent variable
         reconstructed = self.decoder(z)
 
-        # Add KL divergence regularization loss for this forward pass
+        # Compute KL loss term (and add it as a metric)
         kl_loss = - 0.5 * tf.reduce_mean(z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
+        self.add_metric(kl_loss, aggregation='mean', name=self.kl_loss_metric_name)
 
-        self.add_loss(self.kl_loss_weight * kl_loss)
+        # Weight KL loss with the provided `betha` weight parameter
+        weighted_kl_loss = self.kl_loss_weight * kl_loss
+        # Add weighted KL term as loss and metric
+        self.add_loss(weighted_kl_loss)
+        self.add_metric(weighted_kl_loss, aggregation='mean', name="weighted_" + self.kl_loss_metric_name)
 
         return reconstructed

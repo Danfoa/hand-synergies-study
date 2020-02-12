@@ -126,6 +126,7 @@ def plot_task_data(df, block=False):
     else:
         plt.show()
 
+
 def get_configured_plot(df):
 
     subjects = numpy.unique(df[ExperimentFields.subject.value].values)
