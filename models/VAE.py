@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow.python.keras import layers
 
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as mpe
 import numpy as np
 import pandas as pd
 import io
@@ -12,7 +13,7 @@ import os
 
 class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
 
-    def __init__(self, cycles, database_size, epochs, log_dir=None):
+    def __init__(self, cycles, database_size, epochs, max_weight=1.0, log_dir=None):
         training_instances = database_size * epochs
         self.cycle_duration = training_instances / cycles
         self.log_dir = log_dir
@@ -20,6 +21,7 @@ class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
         self.instances_offset = 0
         self.absolute_batch = 0
         self.batch_offset = 0
+        self.max_weight = max_weight
 
     def on_train_begin(self, logs=None):
         if self.model.kl_loss_weight is None:
@@ -30,17 +32,20 @@ class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
         self.processed_instances += logs['size']
         self.absolute_batch = batch + self.batch_offset
         state = (self.processed_instances - self.instances_offset) % self.cycle_duration
+        # print("Hi")
 
         if state <= self.cycle_duration / 3:
-            self.model.kl_loss_weight.assign(0)
+            self.model.kl_loss_weight.assign(0.0)
 
         elif self.cycle_duration/3 <= state <= 2*self.cycle_duration/3:
-            self.model.kl_loss_weight.assign((3 / self.cycle_duration) * (state - self.cycle_duration/3))
+            self.model.kl_loss_weight.assign((self.max_weight/(self.cycle_duration/3)) * (state - self.cycle_duration/3))
+            # print(self.model.kl_loss_weight.value())
 
         elif self.cycle_duration >= state >= 2*self.cycle_duration/3:
-            self.model.kl_loss_weight.assign(1)
+            self.model.kl_loss_weight.assign(self.max_weight)
 
         elif state > self.cycle_duration:  # Restart cycle
+            self.model.kl_loss_weight.assign(0.0)
             self.instances_offset = self.processed_instances
 
         if self.log_dir:
@@ -53,11 +58,17 @@ class CyclicalAnnealingSchedule(tf.keras.callbacks.Callback):
 
 class EmbeddingSpaceLogger(tf.keras.callbacks.Callback):
 
-    def __init__(self, df, X, log_dir, name='train'):
-        self.log_dir = log_dir
+    def __init__(self, df, X, log_dir, traj=None, name='train'):
+        self.log_dir = os.path.join(log_dir, 'embeddings')
         self.df = df
         self.X = X
         self.name = name
+        self.traj = traj
+
+        if not os.path.exists(log_dir):
+            os.mkdir(log_dir)
+        if not os.path.exists(self.log_dir):
+            os.mkdir(self.log_dir)
 
     def on_train_end(self, logs=None):
         print("Saving embeddings to tf projector in %s" % self.log_dir)
@@ -66,36 +77,51 @@ class EmbeddingSpaceLogger(tf.keras.callbacks.Callback):
 
         # Save embeddings for each data instance
         data_df = pd.DataFrame(data=z_mean)
-        data_df.to_csv(self.log_dir + "/vecs.tsv", sep='\t', index=False, header=False)
+        data_df.to_csv(os.path.join(self.log_dir, "vecs.tsv"), sep='\t', index=False, header=False)
 
         # Save metadata tsv file
         metadata = self.df[[e.value for e in ExperimentFields]]
-        metadata.to_csv(self.log_dir + "/meta.tsv", sep='\t', index=False)
+        metadata.to_csv(os.path.join(self.log_dir, "meta.tsv"), sep='\t', index=False)
 
     def on_train_begin(self, logs=None):
         # Save an embedding projection before training
         self.on_epoch_end(-1)
 
     def on_epoch_end(self, epoch, logs=None):
-        if epoch > 0 and epoch % 2 != 0:
-            return
-        print("printing embedding")
+        # if epoch > 0 and epoch % 2 != 0:
+        #     return
+        # print("printing embedding")
         phases = self.df[ExperimentFields.phase.value].values
 
-        figure = plt.figure(figsize=(10, 10))
+        figure = plt.figure(figsize=(8, 8))
+        # plot general space distribution
         z_mean, z_log_var, z = self.model.encoder(self.X)
         print(z_mean.shape)
         if z_mean.shape[1] > 2:
             return
         print(phases.shape)
         z_mean = np.array(z_mean)
-        plt.scatter(z_mean[phases == 2, 0], z_mean[phases == 2, 1], c='r', alpha=1, label="Manipulation")
+        plt.scatter(z_mean[phases == 2, 0], z_mean[phases == 2, 1], marker='o', c='r', alpha=0.8, label="Manipulation")
         plt.scatter(z_mean[phases == 3, 0], z_mean[phases == 3, 1], marker='+', c='k', alpha=0.5, label="Retreat")
         plt.scatter(z_mean[phases == 1, 0], z_mean[phases == 1, 1], marker='2', c='b', alpha=0.5, label="Approach")
 
-        plt.legend()
+        # Plot user
+        plt.legend(loc='upper left')
+        colors = plt.cm.get_cmap("Dark2", len(self.traj))
+        i = 0
+        for t in self.traj:
+            z_mean, _, _ = self.model.encoder(t[[e.value for e in RightHand]].values.astype(np.float32))
+            subs = t[ExperimentFields.subject.value].values
+            z_mean = np.array(z_mean)
+            sub = np.unique(t[ExperimentFields.subject.value])
+            for s in [1, 6, 10]:
+                plt.plot(z_mean[subs == s, 0], z_mean[subs == s, 1], '-o', markersize=1.1,
+                         c=colors(i), lw='0.5', path_effects=[mpe.Stroke(linewidth=1.7, foreground='w'), mpe.Normal()])
+            i += 1
         #
         buf = io.BytesIO()
+        title = "Random mapping" if logs is None else "MSE_loss: %.5f, kl_loss: %.5f" % (logs['MSE_loss'], logs['kl_loss'])
+        plt.title(title)
         plt.savefig(buf, format='png')
         # Closing the figure prevents it from being displayed directly inside
         # the notebook.
@@ -106,7 +132,7 @@ class EmbeddingSpaceLogger(tf.keras.callbacks.Callback):
         # Add the batch dimension
         image = tf.expand_dims(image, 0)
 
-        with tf.summary.create_file_writer(os.path.join(self.log_dir, 'train')).as_default():
+        with tf.summary.create_file_writer(self.log_dir).as_default():
             tf.summary.image("Embedding Space", image, step=epoch)
 
 
@@ -142,6 +168,11 @@ class Encoder(layers.Layer):
         z = self.sampling((z_mean, z_log_var))
         return z_mean, z_log_var, z
 
+    # def get_config(self):
+    #     config = super(Encoder, self).get_config()
+    #     config.update("latent_dim": self.dense_proj.)
+    #     return {}
+
 
 class Decoder(layers.Layer):
     """Converts z, the encoded digit vector, back into a readable digit."""
@@ -162,30 +193,6 @@ class Decoder(layers.Layer):
         return self.dense_output(x)
 
 
-class KLDivergence(layers.Layer):
-    """Converts z, the encoded digit vector, back into a readable digit."""
-
-    def __init__(self, initial_weight=0.0,
-                 name='KL-Divergence',
-                 **kwargs):
-        super(KLDivergence, self).__init__(name=name, **kwargs)
-
-        self.kl_loss_weight = tf.Variable(initial_weight, trainable=False, name="kl_loss_weight", dtype=tf.float32)
-
-    def call(self, inputs):
-        z_mean, z_log_var, z = inputs
-        # Add KL divergence regularization loss for this forward pass
-        kl_loss = - 0.5 * tf.reduce_mean(z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
-        return self.kl_loss_weight * kl_loss
-
-    def get_config(self):
-        config = super().get_config().copy()
-        config.update({
-            'kl_loss_weight': self.kl_loss_weight,
-        })
-        return config
-
-
 class VariationalAutoEncoder(tf.keras.Model):
     """Combines the encoder and decoder into an end-to-end model for training."""
 
@@ -193,18 +200,23 @@ class VariationalAutoEncoder(tf.keras.Model):
                  original_dim=18,
                  intermediate_dim=64,
                  latent_dim=2,
-                 kl_loss_weight=0.2,
+                 kl_loss_weight=0.0,
                  kl_loss_metric_name='kl_loss',
                  name='Autoencoder',
                  **kwargs):
         super(VariationalAutoEncoder, self).__init__(name=name, **kwargs)
+        trainable = kwargs.get('trainable', True)
+
         self.original_dim = original_dim
         self.encoder = Encoder(latent_dim=latent_dim,
-                               intermediate_dim=intermediate_dim)
+                               intermediate_dim=intermediate_dim,
+                               trainable=trainable)
         self.decoder = Decoder(original_dim=original_dim,
-                               intermediate_dim=intermediate_dim)
+                               intermediate_dim=intermediate_dim,
+                               trainable=trainable)
 
-        self.kl_loss_weight = tf.Variable(kl_loss_weight, dtype=tf.float32, trainable=False, name='kl_loss_weight')
+        self.kl_loss_weight = tf.Variable(initial_value=kl_loss_weight, dtype=tf.float32,
+                                          trainable=False, name='kl_loss_weight')
 
         self.kl_loss_metric_name = kl_loss_metric_name
 
@@ -215,7 +227,7 @@ class VariationalAutoEncoder(tf.keras.Model):
         reconstructed = self.decoder(z)
 
         # Compute KL loss term (and add it as a metric)
-        kl_loss = - 0.5 * tf.reduce_mean(z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
+        kl_loss = - 0.5 * tf.reduce_mean(z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1, name='kl_batch_mean')
         self.add_metric(kl_loss, aggregation='mean', name=self.kl_loss_metric_name)
 
         # Weight KL loss with the provided `betha` weight parameter
@@ -223,5 +235,6 @@ class VariationalAutoEncoder(tf.keras.Model):
         # Add weighted KL term as loss and metric
         self.add_loss(weighted_kl_loss)
         self.add_metric(weighted_kl_loss, aggregation='mean', name="weighted_" + self.kl_loss_metric_name)
+        # self.add_metric(self.kl_loss_weight.value(), aggregation=None, name="kl_loss_weight")
 
         return reconstructed
