@@ -27,8 +27,8 @@ class Regression_Model():
     HP_WINDOW_SIZE = hp.HParam('window_size', hp.Discrete([3, 5, 10, 15, 20]))
     HP_RNN = hp.HParam('rnn', hp.Discrete(['vanilla', 'gru', 'lstm']))
     # use adam directly
-    HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001, 0.01, 0.0001, 0.00001]))
-    HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([16, 32, 64]))
+    HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001, 0.01, 0.0001]))
+    HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([32, 64]))
 
     def __init__(self, window_size, n_features):
         self.window_size = window_size
@@ -102,8 +102,8 @@ class Regression_Model():
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_1"))
 
         output_layers = [tf.keras.layers.Dropout(dropout, name="D%.2f" % dropout),
-                         tf.keras.layers.Dense(1, name="output_dense_layers",
-                                               activation=lambda x: 180*tf.keras.activations.tanh(x))]
+                         tf.keras.layers.Dense(1, name="angle_delta_output")]
+                                               # activation=lambda x: 180*tf.keras.activations.tanh(x))]
 
         model = tf.keras.models.Sequential(name="awsome_net", layers=lstm_layers + output_layers)
 
