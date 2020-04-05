@@ -138,8 +138,29 @@ class Regression_Model():
                       )
 
         # Run log dir
-        # hparams_log_dir = os.path.join("/content/drive/", "My Drive", "rnn-hyper-param-search", "logs")
-        hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
+        hparams_log_dir = os.path.join("/content/drive/", "My Drive", "rnn-hyper-param-search", "logs")
+        hparams_writer = tf.summary.create_file_writer(hparams_log_dir)
+        with hparams_writer.as_default():
+            hp.hparams_config(hparams=[self.HP_HIDDEN_LAYERS,
+                                      self.HP_DROPOUT,
+                                      self.HP_RNN,
+                                      self.HP_HIDDEN_UNITS,
+                                      self.HP_LEARNING_RATE,
+                                      self.HP_BATCH_SIZE,
+                                      self.HP_WINDOW_SIZE,
+                                      self.HP_SHIFT_PERIOD],
+                metrics=[
+                    hp.Metric('epoch_loss', group="train", display_name='epoch_loss'),
+                    hp.Metric('epoch_loss', group="validation", display_name='val_loss'),
+                    hp.Metric('mape', group="train", display_name='mape'),
+                    hp.Metric('ecpoh_mape', group="validation", display_name='val_mape'),
+                    hp.Metric('mae', group="train", display_name='mae'),
+                    hp.Metric('epoch_mae', group="validation", display_name='val_mae'),
+                    hp.Metric('rmse', group="train", display_name='rmse'),
+                    hp.Metric('epoch_rmse', group="validation", display_name='val_rmse')
+                ])
+
+        # hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
         logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d-sp=%d" %
                               (rnn, hl, dr, hu, lr, bs, self.window_size, self.shift_period))
 
