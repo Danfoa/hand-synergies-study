@@ -56,12 +56,16 @@ class Regression_Model():
                                                         activation='relu',
                                                         input_shape=(self.window_size, self.n_features),
                                                         name="lstm_0"))
-            else:
+            elif rnn_model == 'gru':
                 lstm_layers.append(tf.keras.layers.GRU(hidden_units,
                                                        activation='relu',
                                                        input_shape=(self.window_size, self.n_features),
                                                        name="gru_0"))
-            # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU"))
+            else:
+                lstm_layers.append(tf.keras.layers.SimpleRNN(hidden_units,
+                                                             activation='relu',
+                                                             input_shape = (self.window_size, self.n_features),
+                                                             name = "vanila_0"))
         else:
             if rnn_model == 'lstm':
                 lstm_layers.append(
