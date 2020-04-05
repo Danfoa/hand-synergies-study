@@ -45,9 +45,9 @@ if __name__=='__main__':
             training_dataset = training_dataset.map(lambda d: (d["sEMG"], d["angles_delta"]))
             test_dataset = test_dataset.map(lambda d: (d["sEMG"], d["angles_delta"]))
 
-            configurations = Regression_Model(window_size, n_features, shift_period).configurations
-            for model, callback, BATCH_SIZE in configurations:
-
+            # for model, callback, BATCH_SIZE in configurations:
+            for configuration in Regression_Model().configurations:
+                model, callback, BATCH_SIZE = Regression_Model(window_size, n_features, shift_period).build_conf(*configuration)
 
                 train_dataset = training_dataset.batch(BATCH_SIZE)
                 validation_dataset = test_dataset.batch(BATCH_SIZE)
