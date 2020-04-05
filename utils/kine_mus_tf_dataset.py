@@ -1,6 +1,6 @@
 import tensorflow as tf
 import pandas as pd
-from utils.data_loader_kine_mus import ExperimentFields, DATABASE_PATH, SUBJECTS, ADLs, RightHand, sEMG, load_subject_data
+from .data_loader_kine_mus import ExperimentFields, DATABASE_PATH, SUBJECTS, ADLs, RightHand, sEMG, load_subject_data
 import pprint
 
 
@@ -15,7 +15,7 @@ def get_windowed_dataset(dataset_path, window_size, target_joints, shift_periods
     for subject in subjects:
         for adl in adl_ids:
             for phase in phase_ids:
-                print("Loading data drom subject %d, adl %d and phase %d" % (subject, adl, phase))
+                # print("Loading data drom subject %d, adl %d and phase %d" % (subject, adl, phase))
                 df = load_subject_data(dataset_path, subject_id=subject, adl_ids=[adl], phase_ids=[phase])
                 # Find the angle deltas
                 shifted_df = df.shift(periods=-shift_periods)
