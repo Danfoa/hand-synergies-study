@@ -105,8 +105,8 @@ class Regression_Model():
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_1"))
 
         output_layers = [tf.keras.layers.Dropout(dropout, name="D%.2f" % dropout),
-                         tf.keras.layers.Dense(1, name="output_dense_layers",
-                                               activation=lambda x: 180*tf.keras.activations.tanh(x))]
+                         tf.keras.layers.Dense(1, name="angle_delta_output")]
+                                               # activation=lambda x: 180*tf.keras.activations.tanh(x))]
 
         model = tf.keras.models.Sequential(name="awsome_net", layers=lstm_layers + output_layers)
 
