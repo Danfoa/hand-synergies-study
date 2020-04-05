@@ -6,9 +6,8 @@ from data_loader_tester import DataLoader
 
 if __name__=='__main__':
     n_steps = 3
-    epochs = 30
+    epochs = 10
     n_features = 2
-    BATCH_SIZE = 32
 
     dataloader = DataLoader(n_steps=n_steps, n_features=n_features)
     X = tf.Variable(dataloader.X, name='input_X', dtype=tf.float32)
@@ -27,19 +26,21 @@ if __name__=='__main__':
     dataset = tf.data.Dataset.from_tensor_slices((X, y))
     val_dataset = tf.data.Dataset.from_tensor_slices((X_val, y_val))
 
-    dataset = dataset.batch(BATCH_SIZE)
-    val_dataset = val_dataset.batch(BATCH_SIZE)
-    test_dataset = test_dataset.batch(BATCH_SIZE)
-
     configurations = Regression_Model().configurations
-    for model, callback in configurations:
+    for model, callback, BATCH_SIZE in configurations:
+
+        train_dataset = dataset.batch(BATCH_SIZE)
+        validation_dataset = val_dataset.batch(BATCH_SIZE)
+        testing_dataset = test_dataset.batch(BATCH_SIZE)
+
         model.summary()
-        model.fit(dataset,
-          validation_data=val_dataset,
+        model.fit(train_dataset,
+          validation_data=validation_dataset,
           epochs=epochs,
           callbacks=callback
           )
 
-        print("Predicted Value is %s" %model.predict(test_dataset))
+        print("Predicted Value is %s" %model.predict(testing_dataset))
+        print("True Value should be 245")
 
 
