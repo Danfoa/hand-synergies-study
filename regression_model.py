@@ -31,6 +31,7 @@ class Regression_Model():
     HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001, 0.01, 0.0001, 0.00001]))
     HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([16, 32, 64]))
     HP_SHIFT_PERIOD = hp.HParam('shift_period', hp.Discrete([1, 2, 4, 7]))
+    HP_CLIP_GRADIENT = hp.HParam('clip_gradient', hp.Discrete([False, True]))
 
     def __init__(self, window_size=None, n_features=None, shift_period=None):
         self.shift_period = shift_period
@@ -46,9 +47,10 @@ class Regression_Model():
                     for hu in self.HP_HIDDEN_UNITS.domain.values:
                         for lr in self.HP_LEARNING_RATE.domain.values:
                             for bs in self.HP_BATCH_SIZE.domain.values:
-                                # new = self.__build_conf(hl, dr, rnn, hu, lr, bs)
-                                new = [hl, dr, rnn, hu, lr, bs]
-                                configurations.append(new)
+                                for cg in self.HP_CLIP_GRADIENT.domain.values:
+                                    # new = self.__build_conf(hl, dr, rnn, hu, lr, bs)
+                                    new = [hl, dr, rnn, hu, lr, bs, cg]
+                                    configurations.append(new)
         return configurations
 
     def __get_rnn_model(self, rnn_model, hidden_layers, dropout, hidden_units):
@@ -130,13 +132,19 @@ class Regression_Model():
                      ]
         return callbacks
 
-    def build_conf(self, hl, dr, rnn, hu, lr, bs):
+    def build_conf(self, hl, dr, rnn, hu, lr, bs, cg):
         model = self.__get_rnn_model(rnn_model=rnn, hidden_layers= hl, dropout=dr, hidden_units=hu)
-        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0),
-                      loss=tf.keras.losses.MeanSquaredError(),
-                      metrics=[self.METRICS]
-                      )
 
+        if cg:
+            model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=lr, clipnorm=1.0),
+                          loss=tf.keras.losses.MeanSquaredError(),
+                          metrics=[self.METRICS]
+                          )
+        else:
+            model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+                          loss=tf.keras.losses.MeanSquaredError(),
+                          metrics=[self.METRICS]
+                          )
         # Run log dir
         hparams_log_dir = os.path.join("/content/drive/", "My Drive", "rnn-hyper-param-search", "logs")
         hparams_writer = tf.summary.create_file_writer(hparams_log_dir)
@@ -148,7 +156,8 @@ class Regression_Model():
                                       self.HP_LEARNING_RATE,
                                       self.HP_BATCH_SIZE,
                                       self.HP_WINDOW_SIZE,
-                                      self.HP_SHIFT_PERIOD],
+                                      self.HP_SHIFT_PERIOD,
+                                      self.HP_CLIP_GRADIENT],
                 metrics=[
                     hp.Metric('epoch_loss', group="train", display_name='epoch_loss'),
                     hp.Metric('epoch_loss', group="validation", display_name='val_loss'),
@@ -161,8 +170,8 @@ class Regression_Model():
                 ])
 
         # hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
-        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d-sp=%d" %
-                              (rnn, hl, dr, hu, lr, bs, self.window_size, self.shift_period))
+        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d-sp=%d-cg=%s" %
+                              (rnn, hl, dr, hu, lr, bs, self.window_size, self.shift_period, cg))
 
         if os.path.exists(logdir):
             pass
@@ -175,7 +184,8 @@ class Regression_Model():
             self.HP_LEARNING_RATE: lr,
             self.HP_BATCH_SIZE: bs,
             self.HP_WINDOW_SIZE: self.window_size,
-            self.HP_SHIFT_PERIOD: self.shift_period
+            self.HP_SHIFT_PERIOD: self.shift_period,
+            self.HP_CLIP_GRADIENT: cg
         }
         callbacks = self.__get_callbacks(logdir, hparams)
 
