@@ -11,16 +11,12 @@ class Regression_Model():
         SS_tot = K.sum(K.square(y_true - K.mean(y_true)))
         return (1 - SS_res / (SS_tot + K.epsilon()))
 
-
     # Define metrics to watch
     METRICS = [
         tf.keras.metrics.MeanSquaredError(name='mse'),
         tf.keras.metrics.MeanAbsoluteError(name='mae'),
         tf.keras.metrics.RootMeanSquaredError(name='rmse')
     ]
-
-
-
 
     # Set hyper parameter search
     # HP_HIDDEN_UNITS = hp.HParam('hidden_units', hp.Discrete([10, 50, 200]))
@@ -55,22 +51,22 @@ class Regression_Model():
         if hidden_layers == 1:
             if rnn_model == 'lstm':
                 lstm_layers.append(tf.keras.layers.LSTM(hidden_units, activation='relu', input_shape=(3, 2), name="lstm_0"))
-            elif rnn_model == 'gru':
-                lstm_layers.append(tf.keras.layers.GRU(hidden_units, activation='relu', input_shape=(3, 2), name="gru_0"))
             else:
-                lstm_layers.append(tf.keras.layers.SimpleRNN(hidden_units, activation='relu', input_shape=(3, 2), name="vanila_0"))
-
+                lstm_layers.append(tf.keras.layers.GRU(hidden_units, activation='relu', input_shape=(3, 2), name="gru_0"))
+            # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU"))
         else:
             if rnn_model == 'lstm':
                 lstm_layers.append(
-                    tf.keras.layers.LSTM(hidden_units, activation='relu', input_shape=(3, 2), return_sequences=True, name="lstm_0"))
+                    tf.keras.layers.LSTM(hidden_units, activation='relu', input_shape=(3, 2), return_sequences=True,
+                                         name="lstm_0"))
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_0"))
                 lstm_layers.append(
                     tf.keras.layers.LSTM(hidden_units, activation='relu', name="lstm_1"))
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_1"))
             elif rnn_model == 'gru':
                 lstm_layers.append(
-                    tf.keras.layers.GRU(hidden_units, input_shape=(3, 2), activation='relu',return_sequences=True, name="gru_0"))
+                    tf.keras.layers.GRU(hidden_units, input_shape=(3, 2), activation='relu', return_sequences=True,
+                                        name="gru_0"))
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_0"))
                 lstm_layers.append(
                     tf.keras.layers.GRU(hidden_units, activation='relu', name="gru_1"))
@@ -85,12 +81,12 @@ class Regression_Model():
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_1"))
 
         model = tf.keras.models.Sequential(name="awsome_net", layers=
-            # One or Two LSTM/ GRU layers
-            lstm_layers+
+        # One or Two LSTM/ GRU layers
+        lstm_layers +
 
-            # Output Layer
-            [tf.keras.layers.Dropout(dropout),
-             tf.keras.layers.Dense(1, name="output_dense_layers")])
+        # Output Layer
+        [tf.keras.layers.Dropout(dropout),
+         tf.keras.layers.Dense(1, name="output_dense_layers")])
 
         return model
 
@@ -112,7 +108,7 @@ class Regression_Model():
         return callbacks
 
 
-    def __build_conf(self, hl, dr, rnn, hu, lr, bs):
+    def __build_conf(self, hl, dr, rnn, hu, lr):
         model = self.__get_rnn_model(rnn_model=rnn, hidden_layers= hl, dropout=dr, hidden_units=hu)
         model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
                       loss=tf.keras.losses.MeanSquaredError(),
@@ -123,7 +119,6 @@ class Regression_Model():
         hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
         logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d" %
                               (rnn, hl, dr, hu, lr, bs))
-
 
         if os.path.exists(logdir):
             pass
@@ -139,6 +134,3 @@ class Regression_Model():
         callbacks = self.__get_callbacks(logdir, hparams)
 
         return model, callbacks, bs
-
-
-

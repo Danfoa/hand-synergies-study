@@ -4,7 +4,7 @@ from utils.data_loader_kine_mus import ExperimentFields, DATABASE_PATH, SUBJECTS
 import pprint
 
 
-def get_windowed_dataset(window_size, target_joints, shift_periods=1, subjects=SUBJECTS, adl_ids=ADLs, phase_ids=None):
+def get_windowed_dataset(dataset_path, window_size, target_joints, shift_periods=1, subjects=SUBJECTS, adl_ids=ADLs, phase_ids=None):
     joint_names = [e.value for e in RightHand]
     joint_delta_names = [e.value + "_dt" for e in RightHand]
     sEMG_names = [e.value for e in sEMG]
@@ -16,7 +16,7 @@ def get_windowed_dataset(window_size, target_joints, shift_periods=1, subjects=S
         for adl in adl_ids:
             for phase in phase_ids:
                 print("Loading data drom subject %d, adl %d and phase %d" % (subject, adl, phase))
-                df = load_subject_data(DATABASE_PATH, subject_id=subject, adl_ids=[adl], phase_ids=[phase])
+                df = load_subject_data(dataset_path, subject_id=subject, adl_ids=[adl], phase_ids=[phase])
                 # Find the angle deltas
                 shifted_df = df.shift(periods=-shift_periods)
                 shifted_df.reset_index(inplace=True, drop=True)
@@ -48,8 +48,8 @@ if __name__ == "__main__":
     # Which joints want to be keept from the data
     target_joints = ["WA"]
 
-    dataset = get_windowed_dataset(window_size=10, target_joints=target_joints, shift_periods=1, subjects=[1],
-                                   adl_ids=[1], phase_ids=[1, 3])
+    dataset = get_windowed_dataset(dataset_path=DATABASE_PATH, window_size=10, target_joints=target_joints,
+                                   shift_periods=1, subjects=[1], adl_ids=[1], phase_ids=[1, 3])
 
     for window in dataset:
         pprint.pprint(window)
