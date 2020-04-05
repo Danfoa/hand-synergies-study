@@ -15,7 +15,8 @@ class Regression_Model():
     METRICS = [
         tf.keras.metrics.MeanSquaredError(name='mse'),
         tf.keras.metrics.MeanAbsoluteError(name='mae'),
-        tf.keras.metrics.RootMeanSquaredError(name='rmse')
+        tf.keras.metrics.RootMeanSquaredError(name='rmse'),
+        tf.keras.metrics.MeanAbsolutePercentageError(name='mape')
     ]
 
     # Set hyper parameter search
@@ -29,8 +30,10 @@ class Regression_Model():
     # use adam directly
     HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001, 0.01, 0.0001, 0.00001]))
     HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([16, 32, 64]))
+    HP_SHIFT_PERIOD = hp.HParam('shift_period', hp.Discrete([1, 2, 4, 7]))
 
-    def __init__(self, window_size, n_features):
+    def __init__(self, window_size, n_features, shift_period):
+        self.shift_period = shift_period
         self.window_size = window_size
         self.n_features = n_features
         self.configurations = self.__build_configurations()
@@ -137,8 +140,8 @@ class Regression_Model():
         # Run log dir
         hparams_log_dir = os.path.join("/content/drive/", "My Drive", "rnn-hyper-param-search", "logs")
         # hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
-        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d" %
-                              (rnn, hl, dr, hu, lr, bs, self.window_size))
+        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d-sp=%d" %
+                              (rnn, hl, dr, hu, lr, bs, self.window_size, self.shift_period))
 
         if os.path.exists(logdir):
             pass
@@ -150,7 +153,8 @@ class Regression_Model():
             self.HP_HIDDEN_UNITS: hu,
             self.HP_LEARNING_RATE: lr,
             self.HP_BATCH_SIZE: bs,
-            self.HP_WINDOW_SIZE: self.window_size
+            self.HP_WINDOW_SIZE: self.window_size,
+            self.HP_SHIFT_PERIOD: self.shift_period
         }
         callbacks = self.__get_callbacks(logdir, hparams)
 
