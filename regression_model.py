@@ -20,12 +20,12 @@ class Regression_Model():
 
     # Set hyper parameter search
     # HP_HIDDEN_UNITS = hp.HParam('hidden_units', hp.Discrete([10, 50, 200]))
-    HP_HIDDEN_UNITS = hp.HParam('hidden_units', hp.Discrete([50]))
+    HP_HIDDEN_UNITS = hp.HParam('hidden_units', hp.Discrete([10, 50, 100, 300]))
     # HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.0, 0.1, 0.2]))
-    HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.0]))
+    HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.0, 0.2]))
     HP_HIDDEN_LAYERS = hp.HParam('hidden_layers', hp.Discrete([1, 2]))
-    HP_WINDOW_SIZE = hp.HParam('window_size',hp.Discrete([5, 10, 15, 20]))
-    HP_RNN = hp.HParam('rnn', hp.Discrete(['vanila', 'gru', 'lstm']))
+    HP_WINDOW_SIZE = hp.HParam('window_size', hp.Discrete([3, 5, 10, 15, 20]))
+    HP_RNN = hp.HParam('rnn', hp.Discrete(['vanilla', 'gru', 'lstm']))
     # use adam directly
     HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001]))
     HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([32, 64]))
@@ -55,17 +55,17 @@ class Regression_Model():
                 lstm_layers.append(tf.keras.layers.LSTM(hidden_units,
                                                         activation='relu',
                                                         input_shape=(self.window_size, self.n_features),
-                                                        name="lstm_0"))
+                                                        name="lstm_0_%dU" % hidden_units))
             elif rnn_model == 'gru':
                 lstm_layers.append(tf.keras.layers.GRU(hidden_units,
                                                        activation='relu',
                                                        input_shape=(self.window_size, self.n_features),
-                                                       name="gru_0"))
+                                                       name="gru_0_%dU" % hidden_units))
             else:
                 lstm_layers.append(tf.keras.layers.SimpleRNN(hidden_units,
                                                              activation='relu',
                                                              input_shape = (self.window_size, self.n_features),
-                                                             name = "vanila_0"))
+                                                             name = "vanilla_0_%dU" % hidden_units))
         else:
             if rnn_model == 'lstm':
                 lstm_layers.append(
@@ -73,10 +73,10 @@ class Regression_Model():
                                          activation='relu',
                                          input_shape=(self.window_size, self.n_features),
                                          return_sequences=True,
-                                         name="lstm_0"))
+                                         name="lstm_0_%dU" % hidden_units))
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_0"))
                 lstm_layers.append(
-                    tf.keras.layers.LSTM(hidden_units, activation='relu', name="lstm_1"))
+                    tf.keras.layers.LSTM(hidden_units, activation='relu', name="lstm_1_%dU" % hidden_units))
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_1"))
             elif rnn_model == 'gru':
                 lstm_layers.append(
@@ -84,10 +84,10 @@ class Regression_Model():
                                         input_shape=(self.window_size, self.n_features),
                                         activation='relu',
                                         return_sequences=True,
-                                        name="gru_0"))
+                                        name="gru_0_%dU" % hidden_units))
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_0"))
                 lstm_layers.append(
-                    tf.keras.layers.GRU(hidden_units, activation='relu', name="gru_1"))
+                    tf.keras.layers.GRU(hidden_units, activation='relu', name="gru_1_%dU" % hidden_units))
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_1"))
             else:
                 lstm_layers.append(
@@ -95,19 +95,17 @@ class Regression_Model():
                                               input_shape=(self.window_size, self.n_features),
                                               activation='relu',
                                               return_sequences=True,
-                                        name="vanila_0"))
+                                        name="vanilla_0_%dU" % hidden_units))
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_0"))
                 lstm_layers.append(
-                    tf.keras.layers.SimpleRNN(hidden_units, activation='relu', name="vanila_1"))
+                    tf.keras.layers.SimpleRNN(hidden_units, activation='relu', name="vanilla_1_%dU" % hidden_units))
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_1"))
 
-        model = tf.keras.models.Sequential(name="awsome_net", layers=
-        # One or Two LSTM/ GRU layers
-        lstm_layers +
+        output_layers = [tf.keras.layers.Dropout(dropout, name="D%.2f" % dropout),
+                         tf.keras.layers.Dense(1, name="output_dense_layers",
+                                               activation=lambda x: 180*tf.keras.activations.tanh(x))]
 
-        # Output Layer
-        [tf.keras.layers.Dropout(dropout),
-         tf.keras.layers.Dense(1, name="output_dense_layers")])
+        model = tf.keras.models.Sequential(name="awsome_net", layers=lstm_layers + output_layers)
 
         return model
 
@@ -118,10 +116,10 @@ class Regression_Model():
                                                     write_graph=False,
                                                     histogram_freq=5),
                      tf.keras.callbacks.EarlyStopping(monitor='val_mse',
-                                                      patience=5),
+                                                      patience=15),
                      hp.KerasCallback(logdir, hparams, trial_id=logdir),
                      tf.keras.callbacks.ModelCheckpoint(
-                         filepath=os.path.join(logdir, "checkpoints", "cp.ckpt"),
+                         filepath=os.path.join(logdir, "cp.ckpt"),
                          save_best_only=True,
                          monitor='val_mse',
                          verbose=1)
