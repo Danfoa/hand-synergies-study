@@ -29,7 +29,7 @@ def get_windowed_dataset(dataset_path, window_size, target_joints, shift_periods
 
                 # Configure TF dataset
                 tmp_dataset = tf.data.Dataset.from_tensor_slices(df.values)
-                tmp_dataset = tmp_dataset.window(window_size, drop_remainder=True)
+                tmp_dataset = tmp_dataset.window(window_size, shift=1, stride=1, drop_remainder=True)
                 tmp_dataset = tmp_dataset.flat_map(lambda x: x.batch(window_size))
                 tmp_dataset = tmp_dataset.map(lambda x: {"angles_delta": x[-1, len(target_joints):len(target_joints)+len(target_deltas)],
                                                  "angles": x[-1, :len(target_joints)],
