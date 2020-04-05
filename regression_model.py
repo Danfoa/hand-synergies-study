@@ -22,13 +22,13 @@ class Regression_Model():
     # HP_HIDDEN_UNITS = hp.HParam('hidden_units', hp.Discrete([10, 50, 200]))
     HP_HIDDEN_UNITS = hp.HParam('hidden_units', hp.Discrete([10, 50, 100, 300]))
     # HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.0, 0.1, 0.2]))
-    HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.0, 0.2]))
+    HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.0, 0.2, 0.4]))
     HP_HIDDEN_LAYERS = hp.HParam('hidden_layers', hp.Discrete([1, 2]))
     HP_WINDOW_SIZE = hp.HParam('window_size', hp.Discrete([3, 5, 10, 15, 20]))
     HP_RNN = hp.HParam('rnn', hp.Discrete(['vanilla', 'gru', 'lstm']))
     # use adam directly
-    HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001]))
-    HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([32, 64]))
+    HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001, 0.01, 0.0001, 0.00001]))
+    HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([16, 32, 64]))
 
     def __init__(self, window_size, n_features):
         self.window_size = window_size
