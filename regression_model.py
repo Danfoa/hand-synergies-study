@@ -137,7 +137,8 @@ class Regression_Model():
                       )
 
         # Run log dir
-        hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
+        hparams_log_dir = os.path.join("/content/drive/", "My Drive", "rnn-hyper-param-search", "logs")
+        # hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
         logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d" %
                               (rnn, hl, dr, hu, lr, bs, self.window_size))
 
