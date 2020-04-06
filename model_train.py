@@ -13,58 +13,59 @@ if __name__=='__main__':
 
     target_joints = ["WA"]
 
-    epochs = 10
-    n_features = 7
+    epochs = 100
+    n_features = 8
 
-    window_sizes = [5, 10, 15, 20]
-    # shift_periods = [1, 2, 4, 7]
-    target_sizes = [1]
+    window_sizes = [10, 20, 30]
     subjects = [1]
 
-    training_adls = np.random.choice(ADLs, 21, replace=False)
-    test_adls = np.array([e for e in ADLs if not e in training_adls])
+    training_adls = [17, 18, 11, 5, 12, 23, 2, 25, 21, 7, 20, 14, 15, 19, 8, 6,
+                     26, 10, 3, 4, 9, 16, 22]
+    test_adls = [1, 13, 24]
+
+    target_size = 5
 
     for window_size in window_sizes:
-        for target_size in target_sizes:
-            # Training dataset
-            training_dataset = get_windowed_dataset(dataset_path=DATABASE_PATH,
-                                                    window_size=window_size,
-                                                    target_joints=target_joints,
-                                                    shift_periods=target_size,
-                                                    subjects=subjects,
-                                                    adl_ids=training_adls,
-                                                    phase_ids=[1, 2, 3])
-            # Validation dataset
-            test_dataset = get_windowed_dataset(dataset_path=DATABASE_PATH,
+        # Training dataset
+        training_dataset = get_windowed_dataset(dataset_path=DATABASE_PATH,
+                                                target_size=target_size,
                                                 window_size=window_size,
                                                 target_joints=target_joints,
                                                 shift_periods=target_size,
                                                 subjects=subjects,
-                                                adl_ids=test_adls,
-                                                phase_ids=[1, 2, 3])
+                                                adl_ids=training_adls,
+                                                phase_ids=None)
+        # Validation dataset
+        test_dataset = get_windowed_dataset(dataset_path=DATABASE_PATH,
+                                            window_size=window_size,
+                                            target_size=target_size,
+                                            target_joints=target_joints,
+                                            shift_periods=target_size,
+                                            subjects=subjects,
+                                            adl_ids=test_adls,
+                                            phase_ids=None)
 
-            # training_dataset = training_dataset.map(lambda d: (d["sEMG"], d["angles_delta"]))
-            # test_dataset = test_dataset.map(lambda d: (d["sEMG"], d["angles_delta"]))
+        for configuration in Regression_Model().configurations:
+            model, callback, BATCH_SIZE = Regression_Model(window_size, n_features, target_size).build_conf(
+                *configuration)
 
-            # for model, callback, BATCH_SIZE in configurations:
-            for configuration in Regression_Model().configurations:
-                model, callback, BATCH_SIZE = Regression_Model(window_size, n_features, target_size).build_conf(*configuration)
+            if model is None:
+                continue
 
-                if model is None:
-                    continue
+            train_dataset = training_dataset.cache().shuffle(5000).batch(BATCH_SIZE).prefetch(
+                tf.data.experimental.AUTOTUNE)
+            validation_dataset = test_dataset.batch(BATCH_SIZE).prefetch(tf.data.experimental.AUTOTUNE)
+            # testing_dataset = test_dataset.batch(BATCH_SIZE)
 
-                train_dataset = training_dataset.batch(BATCH_SIZE)
-                validation_dataset = test_dataset.batch(BATCH_SIZE)
-                # testing_dataset = test_dataset.batch(BATCH_SIZE)
+            # display(tf.keras.utils.plot_model(model, show_shapes=True, dpi=72,
+            #                                   show_layer_names=True,
+            #                                   to_file='model.png'))
 
-                model.summary()
-                model.fit(train_dataset,
-                  validation_data=validation_dataset,
-                  epochs=epochs,
-                  callbacks=callback
-                  )
-
-            # print("Predicted Value is %s" %model.predict(testing_dataset))
-            # print("True Value should be 245")
+            # model.summary()
+            model.fit(train_dataset,
+                      validation_data=validation_dataset,
+                      epochs=epochs,
+                      callbacks=callback
+                      )
 
 

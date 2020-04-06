@@ -13,25 +13,21 @@ class Regression_Model():
 
     # Define metrics to watch
     METRICS = [
-        tf.keras.metrics.MeanSquaredError(name='mse'),
         tf.keras.metrics.MeanAbsoluteError(name='mae'),
         tf.keras.metrics.RootMeanSquaredError(name='rmse'),
         tf.keras.metrics.MeanAbsolutePercentageError(name='mape')
     ]
 
     # Set hyper parameter search
-    # HP_HIDDEN_UNITS = hp.HParam('hidden_units', hp.Discrete([10, 50, 200]))
-    HP_HIDDEN_UNITS = hp.HParam('hidden_units', hp.Discrete([10, 50, 100, 300]))
-    # HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.0, 0.1, 0.2]))
-    HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.0, 0.2, 0.4]))
-    HP_HIDDEN_LAYERS = hp.HParam('hidden_layers', hp.Discrete([1, 2]))
-    HP_WINDOW_SIZE = hp.HParam('window_size', hp.Discrete([3, 5, 10, 15, 20]))
-    HP_RNN = hp.HParam('rnn', hp.Discrete(['vanilla', 'gru', 'lstm']))
-    # use adam directly
-    HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001, 0.01, 0.0001, 0.00001]))
-    HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([16, 32, 64]))
-    HP_TARGET_SIZE = hp.HParam('target_period', hp.Discrete([1]))
-    HP_CLIP_GRADIENT = hp.HParam('clip_gradient', hp.Discrete([False, True]))
+    HP_HIDDEN_UNITS = hp.HParam('hidden_units', hp.Discrete([32, 64, 128]))#, 128]))
+    HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.0, 0.2]))
+    HP_HIDDEN_LAYERS = hp.HParam('hidden_layers', hp.Discrete([2])) #1
+    HP_WINDOW_SIZE = hp.HParam('window_size', hp.Discrete([10, 20, 30]))
+    HP_RNN = hp.HParam('rnn', hp.Discrete(['lstm']))
+    HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001, 0.0001]))
+    HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([32]))
+    HP_TARGET_SIZE = hp.HParam('target_size', hp.Discrete([1, 5, 10]))
+    HP_CLIP_GRADIENT = hp.HParam('clip_gradient', hp.Discrete([False]))
 
     def __init__(self, window_size=None, n_features=None, target_size=None):
         self.target_size = target_size
@@ -44,9 +40,9 @@ class Regression_Model():
         for hl in self.HP_HIDDEN_LAYERS.domain.values:
             for dr in self.HP_DROPOUT.domain.values:
                 for rnn in self.HP_RNN.domain.values:
-                    for hu in self.HP_HIDDEN_UNITS.domain.values:
-                        for lr in self.HP_LEARNING_RATE.domain.values:
-                            for bs in self.HP_BATCH_SIZE.domain.values:
+                    for lr in self.HP_LEARNING_RATE.domain.values:
+                        for bs in self.HP_BATCH_SIZE.domain.values:
+                            for hu in self.HP_HIDDEN_UNITS.domain.values:
                                 for cg in self.HP_CLIP_GRADIENT.domain.values:
                                     # new = self.__build_conf(hl, dr, rnn, hu, lr, bs)
                                     new = [hl, dr, rnn, hu, lr, bs, cg]
@@ -109,7 +105,7 @@ class Regression_Model():
 
         output_layers = [tf.keras.layers.Dropout(dropout, name="D%.2f" % dropout),
                          tf.keras.layers.Dense(self.target_size, name="angle_delta_output")]
-                                               # activation=lambda x: 180*tf.keras.activations.tanh(x))]
+                                              #  activation=lambda x: 180*tf.keras.activations.tanh(x))]
 
         model = tf.keras.models.Sequential(name="awsome_net", layers=lstm_layers + output_layers)
 
@@ -121,13 +117,13 @@ class Regression_Model():
                                                     update_freq='batch',
                                                     write_graph=False,
                                                     histogram_freq=5),
-                     tf.keras.callbacks.EarlyStopping(monitor='val_mse',
+                     tf.keras.callbacks.EarlyStopping(monitor='val_loss',
                                                       patience=15),
                      hp.KerasCallback(logdir, hparams, trial_id=logdir),
                      tf.keras.callbacks.ModelCheckpoint(
                          filepath=os.path.join(logdir, "cp.ckpt"),
                          save_best_only=True,
-                         monitor='val_mse',
+                         monitor='val_loss',
                          verbose=1)
                      ]
         return callbacks
@@ -146,7 +142,8 @@ class Regression_Model():
                           metrics=[self.METRICS]
                           )
         # Run log dir
-        hparams_log_dir = os.path.join("/content/drive/", "My Drive", "rnn-hyper-param-search", "logs")
+        # hparams_log_dir = os.path.join("/content/drive/", "My Drive", "rnn-hyperparam-include-history", "logs")
+        hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
         hparams_writer = tf.summary.create_file_writer(hparams_log_dir)
         with hparams_writer.as_default():
             hp.hparams_config(hparams=[self.HP_HIDDEN_LAYERS,
@@ -162,15 +159,20 @@ class Regression_Model():
                     hp.Metric('epoch_loss', group="train", display_name='epoch_loss'),
                     hp.Metric('epoch_loss', group="validation", display_name='val_loss'),
                     hp.Metric('mape', group="train", display_name='mape'),
-                    hp.Metric('ecpoh_mape', group="validation", display_name='val_mape'),
+                    hp.Metric('mape', group="validation", display_name='val_mape'),
                     hp.Metric('mae', group="train", display_name='mae'),
-                    hp.Metric('epoch_mae', group="validation", display_name='val_mae'),
+                    hp.Metric('mae', group="validation", display_name='val_mae'),
                     hp.Metric('rmse', group="train", display_name='rmse'),
+                    hp.Metric('rmse', group="validation", display_name='val_rmse'),
+                    hp.Metric('epoch_mape', group="train", display_name='mape'),
+                    hp.Metric('epoch_mape', group="validation", display_name='val_mape'),
+                    hp.Metric('epoch_mae', group="train", display_name='mae'),
+                    hp.Metric('epoch_mae', group="validation", display_name='val_mae'),
+                    hp.Metric('epoch_rmse', group="train", display_name='rmse'),
                     hp.Metric('epoch_rmse', group="validation", display_name='val_rmse')
                 ])
 
-        # hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
-        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%s-hu=%d-lr=%s-bs=%d-ws-%d-sp=%d-cg=%s" %
+        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d-ts=%d-cg=%s" %
                               (rnn, hl, dr, hu, lr, bs, self.window_size, self.target_size, cg))
 
         if os.path.exists(logdir):
