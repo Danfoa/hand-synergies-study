@@ -49,6 +49,9 @@ if __name__=='__main__':
             for configuration in Regression_Model().configurations:
                 model, callback, BATCH_SIZE = Regression_Model(window_size, n_features, shift_period).build_conf(*configuration)
 
+                if model is None:
+                    continue
+
                 train_dataset = training_dataset.batch(BATCH_SIZE)
                 validation_dataset = test_dataset.batch(BATCH_SIZE)
                 # testing_dataset = test_dataset.batch(BATCH_SIZE)

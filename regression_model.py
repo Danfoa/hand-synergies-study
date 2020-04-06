@@ -170,12 +170,13 @@ class Regression_Model():
                 ])
 
         # hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
-        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d-sp=%d-cg=%s" %
+        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%s-hu=%d-lr=%s-bs=%d-ws-%d-sp=%d-cg=%s" %
                               (rnn, hl, dr, hu, lr, bs, self.window_size, self.shift_period, cg))
 
         if os.path.exists(logdir):
-            pass
-            # print("Ignoring run %s" % logdir)
+            print("Ignoring run %s" % logdir)
+            return None, None, None
+
         hparams = {
             self.HP_HIDDEN_LAYERS: hl,
             self.HP_DROPOUT: dr,
