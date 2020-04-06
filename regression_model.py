@@ -30,11 +30,11 @@ class Regression_Model():
     # use adam directly
     HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.001, 0.01, 0.0001, 0.00001]))
     HP_BATCH_SIZE = hp.HParam('batch_size', hp.Discrete([16, 32, 64]))
-    HP_SHIFT_PERIOD = hp.HParam('shift_period', hp.Discrete([1, 2, 4, 7]))
+    HP_TARGET_SIZE = hp.HParam('target_period', hp.Discrete([1]))
     HP_CLIP_GRADIENT = hp.HParam('clip_gradient', hp.Discrete([False, True]))
 
-    def __init__(self, window_size=None, n_features=None, shift_period=None):
-        self.shift_period = shift_period
+    def __init__(self, window_size=None, n_features=None, target_size=None):
+        self.target_size = target_size
         self.window_size = window_size
         self.n_features = n_features
         self.configurations = self.__build_configurations()
@@ -108,7 +108,7 @@ class Regression_Model():
                 # lstm_layers.append(tf.keras.layers.ReLU(name="input_RELU_1"))
 
         output_layers = [tf.keras.layers.Dropout(dropout, name="D%.2f" % dropout),
-                         tf.keras.layers.Dense(1, name="angle_delta_output")]
+                         tf.keras.layers.Dense(self.target_size, name="angle_delta_output")]
                                                # activation=lambda x: 180*tf.keras.activations.tanh(x))]
 
         model = tf.keras.models.Sequential(name="awsome_net", layers=lstm_layers + output_layers)
@@ -156,7 +156,7 @@ class Regression_Model():
                                       self.HP_LEARNING_RATE,
                                       self.HP_BATCH_SIZE,
                                       self.HP_WINDOW_SIZE,
-                                      self.HP_SHIFT_PERIOD,
+                                      self.HP_TARGET_SIZE,
                                       self.HP_CLIP_GRADIENT],
                 metrics=[
                     hp.Metric('epoch_loss', group="train", display_name='epoch_loss'),
@@ -171,7 +171,7 @@ class Regression_Model():
 
         # hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
         logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%s-hu=%d-lr=%s-bs=%d-ws-%d-sp=%d-cg=%s" %
-                              (rnn, hl, dr, hu, lr, bs, self.window_size, self.shift_period, cg))
+                              (rnn, hl, dr, hu, lr, bs, self.window_size, self.target_size, cg))
 
         if os.path.exists(logdir):
             print("Ignoring run %s" % logdir)
@@ -185,7 +185,7 @@ class Regression_Model():
             self.HP_LEARNING_RATE: lr,
             self.HP_BATCH_SIZE: bs,
             self.HP_WINDOW_SIZE: self.window_size,
-            self.HP_SHIFT_PERIOD: self.shift_period,
+            self.HP_TARGET_SIZE: self.target_size,
             self.HP_CLIP_GRADIENT: cg
         }
         callbacks = self.__get_callbacks(logdir, hparams)

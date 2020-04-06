@@ -17,19 +17,20 @@ if __name__=='__main__':
     n_features = 7
 
     window_sizes = [5, 10, 15, 20]
-    shift_periods = [1, 2, 4, 7]
+    # shift_periods = [1, 2, 4, 7]
+    target_sizes = [1]
     subjects = [1]
 
     training_adls = np.random.choice(ADLs, 21, replace=False)
     test_adls = np.array([e for e in ADLs if not e in training_adls])
 
     for window_size in window_sizes:
-        for shift_period in shift_periods:
+        for target_size in target_sizes:
             # Training dataset
             training_dataset = get_windowed_dataset(dataset_path=DATABASE_PATH,
                                                     window_size=window_size,
                                                     target_joints=target_joints,
-                                                    shift_periods=shift_period,
+                                                    shift_periods=target_size,
                                                     subjects=subjects,
                                                     adl_ids=training_adls,
                                                     phase_ids=[1, 2, 3])
@@ -37,17 +38,17 @@ if __name__=='__main__':
             test_dataset = get_windowed_dataset(dataset_path=DATABASE_PATH,
                                                 window_size=window_size,
                                                 target_joints=target_joints,
-                                                shift_periods=shift_period,
+                                                shift_periods=target_size,
                                                 subjects=subjects,
                                                 adl_ids=test_adls,
                                                 phase_ids=[1, 2, 3])
 
-            training_dataset = training_dataset.map(lambda d: (d["sEMG"], d["angles_delta"]))
-            test_dataset = test_dataset.map(lambda d: (d["sEMG"], d["angles_delta"]))
+            # training_dataset = training_dataset.map(lambda d: (d["sEMG"], d["angles_delta"]))
+            # test_dataset = test_dataset.map(lambda d: (d["sEMG"], d["angles_delta"]))
 
             # for model, callback, BATCH_SIZE in configurations:
             for configuration in Regression_Model().configurations:
-                model, callback, BATCH_SIZE = Regression_Model(window_size, n_features, shift_period).build_conf(*configuration)
+                model, callback, BATCH_SIZE = Regression_Model(window_size, n_features, target_size).build_conf(*configuration)
 
                 if model is None:
                     continue
