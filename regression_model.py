@@ -142,8 +142,8 @@ class Regression_Model():
                           metrics=[self.METRICS]
                           )
         # Run log dir
-        # hparams_log_dir = os.path.join("/content/drive/", "My Drive", "rnn-hyperparam-include-history", "logs")
-        hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
+        hparams_log_dir = os.path.join("/content/drive/", "My Drive", "rnn-hyperparam-include-history", "logs")
+        # hparams_log_dir = os.path.join("results", "rnn-hyper-param-search", "logs")
         hparams_writer = tf.summary.create_file_writer(hparams_log_dir)
         with hparams_writer.as_default():
             hp.hparams_config(hparams=[self.HP_HIDDEN_LAYERS,
