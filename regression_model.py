@@ -172,7 +172,7 @@ class Regression_Model():
                     hp.Metric('epoch_rmse', group="validation", display_name='val_rmse')
                 ])
 
-        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d-ts=%d-cg=%s" %
+        logdir = os.path.join(hparams_log_dir, "rnn=%s-hl=%d-dr=%s-hu=%d-lr=%s-bs=%d-ws-%d-ts=%d-cg=%s" %
                               (rnn, hl, dr, hu, lr, bs, self.window_size, self.target_size, cg))
 
         if os.path.exists(logdir):
