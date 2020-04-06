@@ -59,7 +59,7 @@ if __name__=='__main__':
             ws = window_size
             ts = target_size
             log_angle_prediction = os.path.join(logdir, "predicted_angles",
-                                                "rnn=%s-hl=%d-dr=%d-hu=%d-lr=%s-bs=%d-ws-%d-ts=%d-cg=%s"
+                                                "rnn=%s-hl=%d-dr=%s-hu=%d-lr=%s-bs=%d-ws-%d-ts=%d-cg=%s"
                                                 % (rnn, hl, dr,  hu, lr, bs, ws, ts, cg))
 
             train_dataset = training_dataset.cache().shuffle(5000).batch(BATCH_SIZE).prefetch(
