@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import pandas as pd
-from utils.data_loader_kine_mus import ExperimentFields, DATABASE_PATH, SUBJECTS, ADLs, RightHand, sEMG, load_subject_data, \
+from .data_loader_kine_mus import ExperimentFields, DATABASE_PATH, SUBJECTS, ADLs, RightHand, sEMG, load_subject_data, \
     load_subjects_data
 import pprint
 import matplotlib.pyplot as plt
