@@ -8,14 +8,15 @@ import io
 
 class LogAnglePredCallback(tf.keras.callbacks.Callback):
 
-    def __init__(self, dataset, logdir):
+    def __init__(self, dataset, logdir, freq=1, domain="images"):
         super().__init__()
         self.file_writer = tf.summary.create_file_writer(logdir)
         self.dataset = dataset
-        self.logdir = logdir
+        self.logdir = os.path.join(logdir, domain)
+        self.freq = freq
 
     def on_epoch_end(self, epoch, logs=None):
-        if epoch % 5 != 0:
+        if epoch % self.freq != 0:
             return
 
         history_angles = None
