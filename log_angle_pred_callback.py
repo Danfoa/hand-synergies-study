@@ -6,7 +6,6 @@ import seaborn as sns
 import io
 
 
-
 class LogAnglePredCallback(tf.keras.callbacks.Callback):
 
     def __init__(self, dataset, logdir):
@@ -14,7 +13,6 @@ class LogAnglePredCallback(tf.keras.callbacks.Callback):
         self.file_writer = tf.summary.create_file_writer(logdir)
         self.dataset = dataset
         self.logdir = logdir
-
 
     def on_epoch_end(self, epoch, logs=None):
         if epoch % 5 != 0:
@@ -27,13 +25,14 @@ class LogAnglePredCallback(tf.keras.callbacks.Callback):
             ground_truths = elem[1]
 
         predictions = self.model.predict(history_angles)
-        figure = multi_step_plot(history_angles.numpy()[:,:,0], ground_truths.numpy(),
-                            predictions,
-                            logdir=self.logdir,
-                            epoch=epoch)
+        figure = multi_step_plot(history_angles.numpy()[:, :, 0], ground_truths.numpy(),
+                                 predictions,
+                                 logdir=self.logdir,
+                                 epoch=epoch)
         with self.file_writer.as_default():
             tf.summary.image("Angle Prediction", plot_to_image(figure), step=epoch)
             print("Logging predictions...")
+
 
 def plot_to_image(figure):
     """Converts the matplotlib plot specified by 'figure' to a PNG image and
@@ -50,6 +49,7 @@ def plot_to_image(figure):
     # Add the batch dimension
     image = tf.expand_dims(image, 0)
     return image
+
 
 def multi_step_plot(history, true_future, prediction, logdir, epoch):
     # batch_size = history.shape[0]
@@ -71,6 +71,7 @@ def multi_step_plot(history, true_future, prediction, logdir, epoch):
             plt.plot(num_out, np.array(prediction[(row * 3), :]), 'ro',
                      label='Predicted Future')
         plt.legend(loc='upper left')
+        plt.grid("on")
 
         plt.subplot(num_rows, 3, (row * 3) + 2)
         plt.plot(num_in, np.array(history[(row * 3) + 1, :]), label='History')
@@ -81,6 +82,8 @@ def multi_step_plot(history, true_future, prediction, logdir, epoch):
             plt.plot(num_out, np.array(prediction[(row * 3) + 1, :]), 'ro',
                      label='Predicted Future')
         plt.legend(loc='upper left')
+        plt.grid("on")
+
         plt.subplot(num_rows, 3, (row * 3) + 3)
         plt.plot(num_in, np.array(history[(row * 3) + 2, :]), label='History')
 
@@ -90,6 +93,7 @@ def multi_step_plot(history, true_future, prediction, logdir, epoch):
             plt.plot(num_out, np.array(prediction[(row * 3) + 2, :]), 'ro',
                      label='Predicted Future')
         plt.legend(loc='upper left')
+        plt.grid("on")
+
     plt.tight_layout()
     return fig
-
