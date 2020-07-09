@@ -80,38 +80,3 @@ def load_subject_data(database_path, subject_id, adl_ids=None, phase_ids=None):
         
     return df
 
-
-# def load_static_grasps(database_path, subjects_id, records_id, experiment_number=1, tasks_id=None):
-#     print("Loading subjects stable initial grasps:\nSubject: ")
-#     df = None
-#     for subject_id in subjects_id:
-#         print(subject_id)
-#         for record_id in records_id:
-#             subject_data = load_subject_data(database_path=database_path,
-#                                              subject_id=subject_id,
-#                                              experiment_number=experiment_number,
-#                                              records_id=[record_id],
-#                                              task_id=tasks_id)
-#             if df is None:
-#                 df = pandas.DataFrame(columns=subject_data.columns)
-#
-#             # Get id of the task performed in each record
-#             tasks_ids = numpy.unique(subject_data[ExperimentFields.task_id.value].values)
-#             for task_id in tasks_ids:
-#                 task_data = subject_data[subject_data[ExperimentFields.task_id.value] == task_id]
-#                 # Save first joint possitions since they represent the stable grasp
-#                 # print(task_data.shape)
-#                 df = pandas.concat((df, task_data.iloc[[0], :]), axis=0)
-#                 # print(df.shape)
-#     print('')
-#     df.reset_index(drop=True, inplace=True)
-#     return df
-
-
-# def remove_timesteps_with_missing_values(df):
-#     data_with_missing_values = df.index[df.isna().any(axis=1)]
-#     if len(data_with_missing_values) > 0:
-#         print("Removing %.2f%% observations with missing numerical values" %
-#               ((len(data_with_missing_values) / df.shape[0]) * 100))
-#         df = df.drop(index=data_with_missing_values)
-#     return df
