@@ -1,7 +1,7 @@
 import math
 from enum import Enum
 
-from utils.data_loader_kine_adl import RightHand
+from .data_loader_kine_adl import RightHand
 
 scale_factor = 1
 reflect = 1

@@ -1,8 +1,7 @@
-import pandas
-import numpy
-import matplotlib.pyplot as plt
 from enum import Enum
 
+import numpy
+import pandas
 
 DATABASE_PATH = 'kine-mus-uji-dataset/CSV_Data/'
 

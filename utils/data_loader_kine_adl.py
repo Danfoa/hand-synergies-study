@@ -1,9 +1,8 @@
-
 import os
-import pandas
-import numpy
-import matplotlib.pyplot as plt
 from enum import Enum
+
+import numpy
+import pandas
 
 # from utils.visualization import *
 
@@ -87,10 +86,7 @@ def load_subject_data(database_path, subject_id, experiment_number=1,
     file_name = '/E%d/KINEMATIC_DATA_E%d_S%d.csv' % (experiment_number,
                                                      experiment_number,
                                                      subject_id)
-    
-    
-    
-        
+
     df = pandas.read_csv(filepath_or_buffer=database_path + file_name)
 
     # Filter data by record number/s
@@ -109,20 +105,19 @@ def load_subject_data(database_path, subject_id, experiment_number=1,
             combined_df = pandas.concat((combined_df, df[df[ExperimentFields.task_id.value] == id]), axis=0)
         combined_df.reset_index(inplace=True)
         df = combined_df
-    
+
     if load_anatomic_data:
-        anatomic_labels = ['HL_R','HL_L','HW_R','HW_L']
+        anatomic_labels = ['HL_R', 'HL_L', 'HW_R', 'HW_L']
 
         df_anatomic = pandas.read_csv(os.path.join(database_path, "SUBJECT_DATA.csv"))
         # Load single subject anatomic data
-        df_anatomic = df_anatomic[df_anatomic[ExperimentFields.subject.value] == subject_id] 
+        df_anatomic = df_anatomic[df_anatomic[ExperimentFields.subject.value] == subject_id]
         # Load only hand size measurements
         df_anatomic = df_anatomic[anatomic_labels]
         data = numpy.multiply(numpy.ones((df.shape[0], len(anatomic_labels))), df_anatomic.values)
         df_anatomic = pandas.DataFrame(data=data, columns=anatomic_labels)
 
         df = pandas.concat([df, df_anatomic], axis=1, copy=False)
-
 
     return df
 

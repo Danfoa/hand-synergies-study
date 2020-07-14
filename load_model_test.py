@@ -3,7 +3,7 @@ import numpy as np
 from utils.data_loader_kine_adl import DATABASE_PATH, RightHand, load_subject_data
 from utils.data_visualizer_kine_adl import RightHandJointNames, create_joint_state_msg
 
-from utils.pyrender_visualization import animate_prediction
+from utils.pyrender_visualization import prediction_animation, fixed_prediction_animation
 
 if __name__ == "__main__":
 
@@ -27,14 +27,19 @@ if __name__ == "__main__":
 
     loop_time = 0.01 * 2 * df.shape[0]
 
-    animate_prediction(real_traj=cfg, pred_traj=pred_cfg, loop_time=loop_time,
-                       real_color=np.array([58, 79, 87, 255]),
-                       pred_color=np.array([117, 46, 18, 255]),
-                       run_in_thread=True
-                       )
+    prediction_animation(real_traj=cfg, pred_traj=pred_cfg, loop_time=loop_time,
+                         urdf_path='robots/right_hand_relative.urdf',
+                         real_color=np.array([71, 107, 107, 255]),
+                         pred_color=np.array([209, 224, 224, 255]),
+                         background_color=np.array([1.0, 1.0, 1.0]),
+                         pred_hand_offset=0.2,
+                         )
 
-    # robot = URDF.load('robots/right_hand_relative.urdf')
-
-    # default_cfg = {joint: np.linspace(0, 0.5, 50) for joint in robot.joints}
-
-    # robot.animate(cfg_trajectory=cfg, loop_time=0.01*2*df.shape[0])
+    # fixed_prediction_animation(real_traj=cfg, pred_traj=pred_cfg, loop_time=loop_time/2,
+    #                            urdf_path='robots/right_hand_relative.urdf',
+    #                            real_color=np.array([71, 107, 107, 255]),
+    #                            pred_color=np.array([209, 224, 224, 255]),
+    #                            background_color=np.array([1.0, 1.0, 1.0]),
+    #                            pred_hand_offset=0.2,
+    #                            title="Hand Motion Prediction",
+    #                            show=True)
