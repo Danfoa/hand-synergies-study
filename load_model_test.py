@@ -23,16 +23,20 @@ if __name__ == "__main__":
 
     cfg = {joint_name: positions[:, i] for i, joint_name in enumerate(joint_names)}
 
-    pred_cfg = {joint_name: positions[:, i] * 1.3 for i, joint_name in enumerate(joint_names)}
+    pred_cfgs = []
+    pred_cfgs.append({joint_name: positions[:, i] * 1.3 for i, joint_name in enumerate(joint_names)})
+    pred_cfgs.append({joint_name: positions[:, i] * -0.7 for i, joint_name in enumerate(joint_names)})
+    pred_cfgs.append({joint_name: positions[:, i] * 0.5 for i, joint_name in enumerate(joint_names)})
 
-    loop_time = 0.01 * 2 * df.shape[0]
+    loop_time = 0.01 * df.shape[0]
 
-    prediction_animation(real_traj=cfg, pred_traj=pred_cfg, loop_time=loop_time,
+    prediction_animation(real_traj=cfg, pred_traj=pred_cfgs, loop_time=loop_time,
                          urdf_path='robots/right_hand_relative.urdf',
                          real_color=np.array([71, 107, 107, 255]),
-                         pred_color=np.array([209, 224, 224, 255]),
+                         # pred_color=np.array([209, 224, 224, 255]),
                          background_color=np.array([1.0, 1.0, 1.0]),
-                         pred_hand_offset=0.2,
+                         hand_offset=0.2,
+                         reverse=False
                          )
 
     # fixed_prediction_animation(real_traj=cfg, pred_traj=pred_cfg, loop_time=loop_time/2,
@@ -40,6 +44,6 @@ if __name__ == "__main__":
     #                            real_color=np.array([71, 107, 107, 255]),
     #                            pred_color=np.array([209, 224, 224, 255]),
     #                            background_color=np.array([1.0, 1.0, 1.0]),
-    #                            pred_hand_offset=0.2,
+    #                            hand_offset=0.2,
     #                            title="Hand Motion Prediction",
     #                            show=True)
