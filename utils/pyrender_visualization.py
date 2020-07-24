@@ -193,10 +193,10 @@ def fixed_prediction_animation(real_traj, pred_traj, loop_time,
     # clear_output()
 
     # Set up the camera -- z-axis away from the scene, x-axis right, y-axis up
-    camera = pyrender.OrthographicCamera(xmag=1.0, ymag=1.0)
+    camera = pyrender.OrthographicCamera(xmag=(hand_offset * len(pred_trajectories)) * 1.2, ymag=0.3)
     camera_pose = np.array([
-        [1.0, 0.0, 0.0, hand_offset / 2],
-        [0.0, 0.0, -1.0, -0.3],
+        [1.0, 0.0, 0.0, (hand_offset * len(pred_trajectories)) / 2],
+        [0.0, 0.0, -1.0, -0.25],
         [0.0, 1.0, 0.0, 0.10],
         [0.0, 0.0, 0.0, 1.0],
     ])
@@ -207,11 +207,14 @@ def fixed_prediction_animation(real_traj, pred_traj, loop_time,
     scene.add(light, pose=camera_pose)
 
     # Render the scene
-    r = pyrender.OffscreenRenderer(1200, 800)
+    height = 5
+    width = height * 1.5
+    dpi = 100
+    r = pyrender.OffscreenRenderer(width * dpi, height * dpi)
 
     rgb_sequence, depth_sequence = [], []
 
-    fig = plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(width, height))
     plt.title(title)
 
     color, _ = r.render(scene)
