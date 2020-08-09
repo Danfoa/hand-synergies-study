@@ -63,7 +63,7 @@ def setup_animation_scene(real_traj, pred_traj, urdf_path, hand_offset, loop_tim
                     elif traj_len != len(real_traj[joint_name]):
                         raise ValueError('All joint trajectories must be same length')
         else:
-            raise TypeError('Invalid type for trajectories real[%s], pred[%s]' % (type(real_traj), type(pred_traj)))
+            raise TypeError('Invalid loss_type for trajectories real[%s], pred[%s]' % (type(real_traj), type(pred_traj)))
 
     # Create an array of times that loops from 0 to 1 and back to 0
     fps = 30.0
@@ -192,7 +192,7 @@ def fixed_prediction_animation(real_traj, pred_traj, loop_time,
 
     # clear_output()
 
-    # Set up the camera -- z-axis away from the scene, x-axis right, y-axis up
+    # Set up the camera -- z-axis away from the scene, pred_joint_states-axis right, real_joint_states-axis up
     camera = pyrender.OrthographicCamera(xmag=(hand_offset * len(pred_trajectories)) * 1.2, ymag=0.3)
     camera_pose = np.array([
         [1.0, 0.0, 0.0, (hand_offset * len(pred_trajectories)) / 2],
