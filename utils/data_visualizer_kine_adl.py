@@ -1,5 +1,6 @@
 import math
 from enum import Enum
+import torch
 
 from .data_loader_kine_adl import RightHand
 
@@ -102,9 +103,79 @@ def create_joint_state_msg(recordings, hand_keys):
     js.effort.append(0)
 
     js.name.append('little_distal_joint')
-    estimated_angle = 0.84 * recordings[hand_keys.pip4_f.value] - 12.42
+    estimated_angle = 0.84 * recordings[hand_keys.pip5_f.value] - 12.42
     js.position.append(estimated_angle * math.pi / 180)
     js.velocity.append(0)
     js.effort.append(0)
 
     return js
+
+
+def joint_data_to_urdf_joint_state(data, data_keys, hand_keys):
+    """
+    Utility function to convert the ouput of the NN predicted joint angle values in deg to the URDF joint state space
+    equivalent for the hand model.
+    :param data: Matrix of joint angle values following the ADL dataset convention in deg, of shape
+    (Batch, Window_size, Joints)
+    :type data: torch.Tensor
+    :param data_keys: An ordered list with the names of the joints (following the ADL dataset convention) present in
+    the last dimension of the `data`
+    :param hand_keys: An instance of RightHand or LeftHand enum types
+    :return: A dictionary contaning a mapping from URDF joint names to the torch.Tensor values provided in Data,
+    appropriately formated and scaled
+    """
+    assert isinstance(data, torch.Tensor), "data should be a Tensor"
+
+    joint_names = RightHandJointNames
+    abduction_joints = ['index_abduction_joint', 'middle_abduction_joint',
+                        'ring_abduction_joint', 'little_abduction_joint']
+
+    urdf_cfgs = {}
+    rad_data = data * (math.pi/180)
+
+    # Set normal joint position values directly
+    for joint in joint_names:
+        if not joint.value in abduction_joints:
+            adl_dataset_joint_name = hand_keys[joint.name].value
+            joint_data_idx = data_keys.index(adl_dataset_joint_name)
+            urdf_cfgs[joint.value] = rad_data[..., joint_data_idx]
+
+    reflect = 1
+    # ABDUCTION JOINTS
+    adl_dataset_joint_name = hand_keys.mcp23_a.value
+    joint_data_idx = data_keys.index(adl_dataset_joint_name)
+    urdf_cfgs['index_abduction_joint'] = rad_data[..., joint_data_idx] * -reflect
+
+    # Assume fixed middle abduction joint
+    urdf_cfgs['middle_abduction_joint'] = rad_data[..., 0] * 0
+
+    adl_dataset_joint_name = hand_keys.mcp34_a.value
+    joint_data_idx = data_keys.index(adl_dataset_joint_name)
+    urdf_cfgs['ring_abduction_joint'] = rad_data[..., joint_data_idx] * reflect
+
+    adl_dataset_joint_name = hand_keys.mcp45_a.value
+    joint_data_idx = data_keys.index(adl_dataset_joint_name)
+    joint_values = rad_data[..., joint_data_idx]
+    adl_dataset_joint_name = hand_keys.mcp34_a.value
+    joint_data_idx = data_keys.index(adl_dataset_joint_name)
+    joint_values += rad_data[..., joint_data_idx]
+    urdf_cfgs['little_abduction_joint'] = joint_values * reflect
+
+    # DIP `passive` JOINTS
+    adl_dataset_joint_name = hand_keys.pip2_f.value
+    joint_data_idx = data_keys.index(adl_dataset_joint_name)
+    urdf_cfgs['index_distal_joint'] = (0.87 * data[..., joint_data_idx] - 25.27) * (math.pi/180)
+
+    adl_dataset_joint_name = hand_keys.pip3_f.value
+    joint_data_idx = data_keys.index(adl_dataset_joint_name)
+    urdf_cfgs['middle_distal_joint'] = (0.79 * data[..., joint_data_idx] - 18.33) * (math.pi/180)
+
+    adl_dataset_joint_name = hand_keys.pip4_f.value
+    joint_data_idx = data_keys.index(adl_dataset_joint_name)
+    urdf_cfgs['ring_distal_joint'] = (0.73 * data[..., joint_data_idx] - 20.54) * (math.pi/180)
+
+    adl_dataset_joint_name = hand_keys.pip5_f.value
+    joint_data_idx = data_keys.index(adl_dataset_joint_name)
+    urdf_cfgs['little_distal_joint'] = (0.84 * data[..., joint_data_idx] - 12.42) * (math.pi/180)
+
+    return urdf_cfgs

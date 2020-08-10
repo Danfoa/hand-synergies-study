@@ -31,76 +31,78 @@ import numpy as np
 import pyrender
 from urdfpy import URDF
 from tqdm import tqdm
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import animation, rc
 
 rc('animation', html='html5')
 
-
-def prediction_animation(real_traj, pred_traj, loop_time,
-                         urdf_path='robots/right_hand_relative.urdf',
-                         real_color=np.array([71, 107, 107, 255]),
-                         pred_color=np.array([209, 224, 224, 255]),
-                         background_color=np.array([1.0, 1.0, 1.0]),
-                         title="Hand Motion Prediction",
-                         pred_hand_offset=0.15):
-
+def setup_animation_scene(real_traj, pred_traj, urdf_path, hand_offset, loop_time, real_color, pred_color_cmap,
+                          background_color, reverse=False):
+    pred_trajectories = pred_traj if isinstance(pred_traj, list) else [pred_traj]
     real_hand = URDF.load(urdf_path)
-    pred_hand = URDF.load(urdf_path)
+    pred_hands = []
 
-    pred_origin = pred_hand.joint_map['palm_joint_abduction'].origin[:3, 3]
-    pred_hand.joint_map['palm_joint_abduction'].origin[:3, 3] = pred_origin + np.array([pred_hand_offset, 0.0, 0.0])
-    ct = real_traj
+    for i, traj in enumerate(pred_trajectories):
+        pred_hands.append(URDF.load(urdf_path))
+        pred_origin = pred_hands[i].joint_map['palm_joint_abduction'].origin[:3, 3]
+        pred_hands[i].joint_map['palm_joint_abduction'].origin[:3, 3] = pred_origin + np.array(
+            [hand_offset * (i + 1), 0.0, 0.0])
 
     traj_len = None  # Length of the trajectory in steps
 
     # If it is specified, parse it and extract the trajectory length.
-    if isinstance(real_traj, dict) and isinstance(pred_traj, dict):
-        if len(real_traj) > 0:
-            for joint_name in real_traj:
-                if len(real_traj[joint_name]) != len(pred_traj[joint_name]):
-                    raise ValueError('Real and pred trajectories [%d] must be same length' % joint_name)
-                elif traj_len is None:
-                    traj_len = len(real_traj[joint_name])
-                elif traj_len != len(real_traj[joint_name]):
-                    raise ValueError('All joint trajectories must be same length')
-    else:
-        raise TypeError('Invalid type for trajectories real[%s], pred[%s]' % (type(real_traj), type(pred_traj)))
+    for pred_traj in pred_trajectories:
+        if isinstance(real_traj, dict) and isinstance(pred_traj, dict):
+            if len(real_traj) > 0:
+                for joint_name in real_traj:
+                    if len(real_traj[joint_name]) != len(pred_traj[joint_name]):
+                        raise ValueError('Real and pred trajectories [%d] must be same length' % joint_name)
+                    elif traj_len is None:
+                        traj_len = len(real_traj[joint_name])
+                    elif traj_len != len(real_traj[joint_name]):
+                        raise ValueError('All joint trajectories must be same length')
+        else:
+            raise TypeError('Invalid loss_type for trajectories real[%s], pred[%s]' % (type(real_traj), type(pred_traj)))
 
     # Create an array of times that loops from 0 to 1 and back to 0
     fps = 30.0
-    n_steps = int(loop_time * fps / 2.0)
-    times = np.linspace(0.0, 1.0, n_steps)
-    times = np.hstack((times, np.flip(times)))
-
-    # Create bin edges in the range [0, 1] for each trajectory step
-    bins = np.arange(traj_len) / (float(traj_len) - 1.0)
-
-    # Compute alphas for each time
-    right_inds = np.digitize(times, bins, right=True)
-    right_inds[right_inds == 0] = 1
-    alphas = ((bins[right_inds] - times) /
-              (bins[right_inds] - bins[right_inds - 1]))
 
     # Create the new interpolated trajectory
-    new_real_traj, new_pred_traj = real_traj, pred_traj
+    if reverse:
+        n_steps = int(loop_time * 2 * fps)
+        times = np.linspace(0.0, 1.0, n_steps)
+        times = np.hstack((times, np.flip(times)))
+        # Create bin edges in the range [0, 1] for each trajectory step
+        bins = np.arange(traj_len) / (float(traj_len) - 1.0)
 
-    for joint_name in real_traj:
-        new_real_traj[joint_name] = (alphas * real_traj[joint_name][right_inds - 1] +
+        # Compute alphas for each time
+        right_inds = np.digitize(times, bins, right=True)
+        right_inds[right_inds == 0] = 1
+        alphas = ((bins[right_inds] - times) /
+                  (bins[right_inds] - bins[right_inds - 1]))
+
+        for joint_name in real_traj:
+            real_traj[joint_name] = (alphas * real_traj[joint_name][right_inds - 1] +
                                      (1.0 - alphas) * real_traj[joint_name][right_inds])
-        new_pred_traj[joint_name] = (alphas * pred_traj[joint_name][right_inds - 1] +
-                                     (1.0 - alphas) * pred_traj[joint_name][right_inds])
+            # Compute all
+            for pred_traj in pred_trajectories:
+                pred_traj[joint_name] = (alphas * pred_traj[joint_name][right_inds - 1] +
+                                         (1.0 - alphas) * pred_traj[joint_name][right_inds])
+    else:
+        n_steps = int(loop_time * fps)
+        times = np.linspace(0.0, 1.0, n_steps)
 
     # Create the scene
     fk_real = real_hand.visual_trimesh_fk()
-    fk_pred = pred_hand.visual_trimesh_fk()
+    fk_preds = [pred_hand.visual_trimesh_fk() for pred_hand in pred_hands]
 
     node_map = {}
     scene = pyrender.Scene(bg_color=background_color)
-    for tm_real, tm_pred in zip(fk_real, fk_pred):
+    # Spawn ground truth hand
+    for tm_real in fk_real:
         # Little hack to overcome the urdfpy bug of ignoring URDF materials for .stl meshes
         tm_real._visual.face_colors = tm_real._visual.face_colors * 0 + real_color
-        tm_pred._visual.face_colors = tm_pred._visual.face_colors * 0 + pred_color
 
         # Real hand nodes
         pose = fk_real[tm_real]
@@ -108,39 +110,67 @@ def prediction_animation(real_traj, pred_traj, loop_time,
         node = scene.add(real_mesh, pose=pose)
         node_map[tm_real] = node
 
-        # Pred hand nodes
-        pose = fk_pred[tm_pred]
-        pred_mesh = pyrender.Mesh.from_trimesh(tm_pred, smooth=False)
-        node = scene.add(pred_mesh, pose=pose)
-        node_map[tm_pred] = node
+    # Spawn prediction hands
+    pred_color = []
+    for color_code in np.linspace(0, 1, len(pred_trajectories)):
+        pred_color.append(pred_color_cmap(color_code, bytes=True))
+
+    for i, fk_pred in enumerate(fk_preds):
+        for tm_pred in fk_pred:
+            # Little hack to overcome the urdfpy bug of ignoring URDF materials for .stl meshes
+            tm_pred._visual.face_colors = tm_pred._visual.face_colors * 0 + pred_color[i]
+
+            # Pred hand nodes
+            pose = fk_pred[tm_pred]
+            pred_mesh = pyrender.Mesh.from_trimesh(tm_pred, smooth=False)
+            node = scene.add(pred_mesh, pose=pose)
+            node_map[tm_pred] = node
 
     # Get base pose to focus on
-    blp = real_hand.link_fk(links=[real_hand.base_link])[real_hand.base_link]
+    origin = real_hand.link_fk(links=[real_hand.base_link])[real_hand.base_link]
+
+    return scene, origin, node_map, real_hand, pred_hands, pred_trajectories, times, fps
+
+def prediction_animation(real_traj, pred_traj, loop_time,
+                         urdf_path='robots/right_hand_relative.urdf',
+                         real_color=np.array([71, 107, 107, 255]),
+                         pred_color_cmap=matplotlib.cm.get_cmap('tab10'),
+                         background_color=np.array([1.0, 1.0, 1.0]),
+                         title="Hand Motion Prediction",
+                         hand_offset=0.2,
+                         reverse=True):
+
+    scene, origin, node_map, real_hand, pred_hands, pred_trajectories, times, fps = setup_animation_scene(
+        real_traj=real_traj, pred_traj=pred_traj,
+        hand_offset=hand_offset, loop_time=loop_time, urdf_path=urdf_path, real_color=real_color,
+        pred_color_cmap=pred_color_cmap, background_color=background_color, reverse=reverse)
 
     # Pop the visualizer asynchronously
     v = pyrender.Viewer(scene,
                         run_in_thread=True,
                         use_raymond_lighting=True,
                         window_title=title,
-                        view_center=blp[:3, 3] + np.array([pred_hand_offset / 2, 0, 0.05]))
+                        use_perspective_cam=False,
+                        view_center=origin[:3, 3] + np.array([(hand_offset * (len(pred_trajectories) + 1)) / 2, 0, 0.04]))
 
     # Now, run our loop
     i = 0
     while v.is_active:
-        real_cfg = {k: new_real_traj[k][i] for k in new_real_traj}
-        pred_cfg = {k: new_pred_traj[k][i] for k in new_pred_traj}
+        real_cfg = {k: real_traj[k][i] for k in real_traj}
+        pred_cfgs = [{k: pred_traj[k][i] for k in pred_traj} for pred_traj in pred_trajectories]
         i = (i + 1) % len(times)
 
         fk_real = real_hand.visual_trimesh_fk(cfg=real_cfg)
-        fk_pred = pred_hand.visual_trimesh_fk(cfg=pred_cfg)
+        fk_preds = [pred_hand.visual_trimesh_fk(cfg=pred_cfg) for pred_hand, pred_cfg in zip(pred_hands, pred_cfgs)]
 
         v.render_lock.acquire()
-        for real_mesh, pred_mesh in zip(fk_real, fk_pred):
+        for real_mesh in fk_real:
             real_pose = fk_real[real_mesh]
             node_map[real_mesh].matrix = real_pose
-
-            pred_pose = fk_pred[pred_mesh]
-            node_map[pred_mesh].matrix = pred_pose
+        for fk_pred in fk_preds:
+            for pred_mesh in fk_pred:
+                pred_pose = fk_pred[pred_mesh]
+                node_map[pred_mesh].matrix = pred_pose
         v.render_lock.release()
 
         time.sleep(1.0 / fps)
@@ -149,10 +179,11 @@ def prediction_animation(real_traj, pred_traj, loop_time,
 def fixed_prediction_animation(real_traj, pred_traj, loop_time,
                                urdf_path='robots/right_hand_relative.urdf',
                                real_color=np.array([71, 107, 107, 255]),
-                               pred_color=np.array([209, 224, 224, 255]),
+                               pred_color_cmap=matplotlib.cm.get_cmap('tab10'),
                                background_color=np.array([1.0, 1.0, 1.0]),
-                               pred_hand_offset=0.2,
+                               hand_offset=0.2,
                                title="Hand Motion Prediction",
+                               reverse=True,
                                show=False):
     real_hand = URDF.load(urdf_path)
     pred_hand = URDF.load(urdf_path)
@@ -214,14 +245,18 @@ def fixed_prediction_animation(real_traj, pred_traj, loop_time,
         pred_mesh = pyrender.Mesh.from_trimesh(tm_pred, smooth=False)
         node = scene.add(pred_mesh, pose=pose)
         node_map[tm_pred] = node
+    scene, origin, node_map, real_hand, pred_hands, pred_trajectories, times, fps = setup_animation_scene(
+        real_traj=real_traj, pred_traj=pred_traj,
+        hand_offset=hand_offset, loop_time=loop_time, urdf_path=urdf_path, real_color=real_color,
+        pred_color_cmap=pred_color_cmap, background_color=background_color, reverse=reverse)
 
     # clear_output()
 
-    # Set up the camera -- z-axis away from the scene, x-axis right, y-axis up
-    camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=1.414)
+    # Set up the camera -- z-axis away from the scene, pred_joint_states-axis right, real_joint_states-axis up
+    camera = pyrender.OrthographicCamera(xmag=(hand_offset * len(pred_trajectories)) * 1.2, ymag=0.3)
     camera_pose = np.array([
-        [1.0, 0.0, 0.0, pred_hand_offset / 2],
-        [0.0, 0.0, -1.0, -0.3],
+        [1.0, 0.0, 0.0, (hand_offset * len(pred_trajectories)) / 2],
+        [0.0, 0.0, -1.0, -0.25],
         [0.0, 1.0, 0.0, 0.10],
         [0.0, 0.0, 0.0, 1.0],
     ])
@@ -232,29 +267,34 @@ def fixed_prediction_animation(real_traj, pred_traj, loop_time,
     scene.add(light, pose=camera_pose)
 
     # Render the scene
-    r = pyrender.OffscreenRenderer(1200, 800)
+    height = 5
+    width = height * 1.5
+    dpi = 100
+    r = pyrender.OffscreenRenderer(width * dpi, height * dpi)
 
     rgb_sequence, depth_sequence = [], []
 
-    fig = plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(width, height))
     plt.title(title)
 
     color, _ = r.render(scene)
     rgb_sequence.append(color)
 
     for i in tqdm(range(len(times)), position=0, leave=True, desc="Rendering"):
-        real_cfg = {k: new_real_traj[k][i] for k in new_real_traj}
-        pred_cfg = {k: new_pred_traj[k][i] for k in new_pred_traj}
+        real_cfg = {k: real_traj[k][i] for k in real_traj}
+        pred_cfgs = [{k: pred_traj[k][i] for k in pred_traj} for pred_traj in pred_trajectories]
+        # i = (i + 1) % len(times)
 
         fk_real = real_hand.visual_trimesh_fk(cfg=real_cfg)
-        fk_pred = pred_hand.visual_trimesh_fk(cfg=pred_cfg)
+        fk_preds = [pred_hand.visual_trimesh_fk(cfg=pred_cfg) for pred_hand, pred_cfg in zip(pred_hands, pred_cfgs)]
 
-        for real_mesh, pred_mesh in zip(fk_real, fk_pred):
+        for real_mesh in fk_real:
             real_pose = fk_real[real_mesh]
             node_map[real_mesh].matrix = real_pose
-
-            pred_pose = fk_pred[pred_mesh]
-            node_map[pred_mesh].matrix = pred_pose
+        for fk_pred in fk_preds:
+            for pred_mesh in fk_pred:
+                pred_pose = fk_pred[pred_mesh]
+                node_map[pred_mesh].matrix = pred_pose
 
         color, _ = r.render(scene)
         rgb_sequence.append(color)
