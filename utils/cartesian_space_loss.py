@@ -136,10 +136,13 @@ class CartesianSpaceLoss(torch.nn.Module):
             # print("- %-20s: L2 error: %.3e " % (link.name, link_pos_error))
 
         n_links = len(self.relevant_links) if self.relevant_links is not None else len(true_fk)
-        avg_cartesian_loss = torch.true_divide(torch.sum(cartesian_loss), n_links)
+#         avg_cartesian_loss = torch.true_divide(torch.sum(cartesian_loss), n_links)
+        avg_cartesian_loss = torch.div(torch.sum(cartesian_loss), n_links)
+
         # avg_cartesian_loss.backward()
         if self.return_pos_error:
-            avg_pos_error = torch.true_divide(torch.sum(pos_error), n_links)
+#             avg_pos_error = torch.true_divide(torch.sum(pos_error), n_links)
+            avg_pos_error = torch.div(torch.sum(pos_error), n_links)
             return avg_cartesian_loss, avg_pos_error
         return avg_cartesian_loss
 
@@ -161,23 +164,24 @@ class CartesianSpaceLoss(torch.nn.Module):
         """
         assert isinstance(angles,
                           torch.Tensor), "Angle values must be instance of torch.Tensor to ensure backpropagation"
-
+        
         batch_size = angles.shape[0]
         n_cfgs = angles.shape[1]     # Number of joint configurations/angles
-        axis = torch.from_numpy(axis / np.linalg.norm(axis))
+        axis = torch.from_numpy(axis / np.linalg.norm(axis)).type(torch.float32)
+        axis = axis.cuda()
         sina = torch.sin(angles)
         cosa = torch.cos(angles)
-        M = torch.eye(4).repeat(batch_size, n_cfgs, 1, 1)
+        M = torch.eye(4).repeat(batch_size, n_cfgs, 1, 1).cuda()
         M[:, :, 0, 0] = cosa
         M[:, :, 1, 1] = cosa
         M[:, :, 2, 2] = cosa
-        M[:, :, :3, :3] += torch.ger(axis, axis).repeat(batch_size, n_cfgs, 1, 1) * torch.unsqueeze(
-            torch.unsqueeze(1.0 - cosa, -1), -1)
+#         import pdb; pdb.set_trace()
+        M[:, :, :3, :3] += torch.ger(axis, axis).repeat(batch_size, n_cfgs, 1, 1) * torch.unsqueeze(torch.unsqueeze(1.0 - cosa, -1), -1)
 
         M[:, :, :3, :3] += torch.FloatTensor(
             [[0.0, -axis[2], axis[1]],
              [axis[2], 0.0, -axis[0]],
-             [-axis[1], axis[0], 0.0]]).repeat(batch_size, n_cfgs, 1, 1) * torch.unsqueeze(torch.unsqueeze(sina, -1), -1)
+             [-axis[1], axis[0], 0.0]]).repeat(batch_size, n_cfgs, 1, 1).cuda() * torch.unsqueeze(torch.unsqueeze(sina, -1), -1)
         return M
 
     @staticmethod
@@ -213,7 +217,7 @@ class CartesianSpaceLoss(torch.nn.Module):
             if cfg is None:
                 cfg = torch.zeros(n_cfgs)
 
-            joint_origin = torch.from_numpy(joint.origin.astype(np.float32))
+            joint_origin = torch.from_numpy(joint.origin.astype(np.float32)).cuda()
             R = CartesianSpaceLoss.rotation_matrices(cfg, joint.axis)
             return joint_origin.matmul(R)
         elif joint.joint_type == 'prismatic':
@@ -266,7 +270,7 @@ class CartesianSpaceLoss(torch.nn.Module):
         for lnk in urdf._reverse_topo:
             if lnk not in link_set:
                 continue
-            poses = torch.eye(4, dtype=torch.float32).repeat(batch_size, n_cfgs, 1, 1)
+            poses = torch.eye(4, dtype=torch.float32).repeat(batch_size, n_cfgs, 1, 1).cuda()
             poses.requires_grad = True
             poses.retain_grad()
             path = urdf._paths_to_base[lnk]
