@@ -185,6 +185,66 @@ def fixed_prediction_animation(real_traj, pred_traj, loop_time,
                                title="Hand Motion Prediction",
                                reverse=True,
                                show=False):
+    real_hand = URDF.load(urdf_path)
+    pred_hand = URDF.load(urdf_path)
+
+    pred_origin = pred_hand.joint_map['palm_joint_abduction'].origin[:3, 3]
+    pred_hand.joint_map['palm_joint_abduction'].origin[:3, 3] = pred_origin + np.array([pred_hand_offset, 0.0, 0.0])
+    ct = real_traj
+
+    traj_len = None  # Length of the trajectory in steps
+
+    # If it is specified, parse it and extract the trajectory length.
+    if isinstance(real_traj, dict) and isinstance(pred_traj, dict):
+        if len(real_traj) > 0:
+            for joint_name in real_traj:
+                if len(real_traj[joint_name]) != len(pred_traj[joint_name]):
+                    raise ValueError(f'Real and pred trajectories {joint_name} must be same length')
+                elif traj_len is None:
+                    traj_len = len(real_traj[joint_name])
+                elif traj_len != len(real_traj[joint_name]):
+                    raise ValueError('All joint trajectories must be same length')
+    else:
+        raise TypeError('Invalid type for trajectories real[%s], pred[%s]' % (type(real_traj), type(pred_traj)))
+
+    # Create an array of times that loops from 0 to 1 and back to 0
+    fps = 30.0
+    n_steps = int(loop_time * fps / 2.0)
+    times = np.linspace(0.0, 1.0, n_steps)
+    # times = np.hstack((times, np.flip(times)))
+
+    # Create bin edges in the range [0, 1] for each trajectory step
+    bins = np.arange(traj_len) / (float(traj_len) - 1.0)
+
+    # Compute alphas for each time
+    right_inds = np.digitize(times, bins, right=True)
+    right_inds[right_inds == 0] = 1
+
+    # Create the new interpolated trajectory
+    new_real_traj, new_pred_traj = real_traj, pred_traj
+
+    # Create the scene
+    fk_real = real_hand.visual_trimesh_fk()
+    fk_pred = pred_hand.visual_trimesh_fk()
+
+    node_map = {}
+    scene = pyrender.Scene(bg_color=background_color)
+    for tm_real, tm_pred in zip(fk_real, fk_pred):
+        # Little hack to overcome the urdfpy bug of ignoring URDF materials for .stl meshes
+        tm_real._visual.face_colors = tm_real._visual.face_colors * 0 + real_color
+        tm_pred._visual.face_colors = tm_pred._visual.face_colors * 0 + pred_color
+
+        # Real hand nodes
+        pose = fk_real[tm_real]
+        real_mesh = pyrender.Mesh.from_trimesh(tm_real, smooth=False)
+        node = scene.add(real_mesh, pose=pose)
+        node_map[tm_real] = node
+
+        # Pred hand nodes
+        pose = fk_pred[tm_pred]
+        pred_mesh = pyrender.Mesh.from_trimesh(tm_pred, smooth=False)
+        node = scene.add(pred_mesh, pose=pose)
+        node_map[tm_pred] = node
     scene, origin, node_map, real_hand, pred_hands, pred_trajectories, times, fps = setup_animation_scene(
         real_traj=real_traj, pred_traj=pred_traj,
         hand_offset=hand_offset, loop_time=loop_time, urdf_path=urdf_path, real_color=real_color,
