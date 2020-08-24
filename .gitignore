@@ -1,4 +1,5 @@
 animations/
+*checkpoint
 *.ini
 *.pyc
 
